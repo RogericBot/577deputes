@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Scrutin {{ s.numero }} — votants{% endblock %}
+{% block content %}
+
+<nav class="breadcrumb">
+  <a href="/scrutins">Scrutins</a> /
+  <a href="/scrutins/{{ s.uid }}">n° {{ s.numero }}</a> /
+  <span class="muted">votants</span>
+</nav>
+
+<h1>Liste nominative — scrutin n° {{ s.numero }}</h1>
+<p class="muted">{{ s.titre | truncate(160) }}</p>
+
+<form action="/scrutins/{{ s.uid }}/votants" method="get" class="filter-bar">
+  <select name="position">
+    <option value="">Toutes positions</option>
+    <option value="pour" {% if position == 'pour' %}selected{% endif %}>pour</option>
+    <option value="contre" {% if position == 'contre' %}selected{% endif %}>contre</option>
+    <option value="abstention" {% if position == 'abstention' %}selected{% endif %}>abstention</option>
+    <option value="non_votant" {% if position == 'non_votant' %}selected{% endif %}>non-votant</option>
+  </select>
+  {% if groupe_uid %}<input type="hidden" name="groupe_uid" value="{{ groupe_uid }}">{% endif %}
+  <button type="submit">Filtrer</button>
+  <a class="btn-link" href="/scrutins/{{ s.uid }}/votants">Réinitialiser</a>
+</form>
+
+<p class="muted">{{ rows | length | fint }} député{% if rows | length > 1 %}s{% endif %} affiché{% if rows | length > 1 %}s{% endif %}.</p>
+
+<table class="data-table results">
+  <thead><tr><th></th><th>Député</th><th>Groupe</th><th>Département</th><th>Position</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><div class="thumb" style="background-image:url('{{ r.photo_url }}')"></div></td>
+      <td><a href="/deputes/{{ r.acteur_uid }}">{{ r.nom_complet or r.acteur_uid }}</a></td>
+      <td>{% if r.groupe_abrege %}<span class="group-badge" style="background:{{ r.groupe_couleur or '#777' }}">{{ r.groupe_abrege }}</span>{% endif %}</td>
+      <td>{{ r.departement or '—' }}{% if r.circonscription %} · {{ r.circonscription }}ᵉ{% endif %}</td>
+      <td>
+        <span class="pill pill-pos-{{ r.position }}">{{ r.position }}</span>
+        {% if r.par_delegation %}<span class="muted">par délégation</span>{% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="empty">Aucun votant ne correspond à ces filtres.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

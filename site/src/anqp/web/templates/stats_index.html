@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_macros.html" import hbar_chart %}
+{% block title %}Statistiques{% endblock %}
+{% block content %}
+
+<h1>Statistiques</h1>
+<p class="muted">Six tableaux de bord pour décrypter l'activité parlementaire de la 17ᵉ législature.</p>
+
+<h2>Questions parlementaires</h2>
+<div class="grid grid-3 cards">
+  <a class="card link" href="/stats/groupes">
+    <h3>Par groupe</h3>
+    <p>Volume, taux de réponse et délai moyen pour chaque groupe parlementaire.</p>
+  </a>
+  <a class="card link" href="/stats/ministeres">
+    <h3>Par ministère</h3>
+    <p>Quels ministères sont les plus interrogés ? Quels répondent vite ?</p>
+  </a>
+  <a class="card link" href="/stats/themes">
+    <h3>Par thème</h3>
+    <p>Top 40 des rubriques (santé, éducation, agriculture…).</p>
+  </a>
+  <a class="card link" href="/stats/deputes">
+    <h3>Top députés</h3>
+    <p>Les 30 députés les plus actifs en termes de questions posées.</p>
+  </a>
+  <a class="card link" href="/stats/temporel">
+    <h3>Évolution mensuelle</h3>
+    <p>Volume de questions mois par mois, par type.</p>
+  </a>
+</div>
+
+<h2 style="margin-top:32px">Activité législative</h2>
+<div class="grid grid-3 cards">
+  <a class="card link" href="/stats/textes">
+    <h3>Textes</h3>
+    <p>Volume des dossiers par initiateur, par statut, dépôts mensuels.</p>
+  </a>
+  <a class="card link" href="/stats/amendements">
+    <h3>Amendements</h3>
+    <p>Top 25 députés "amendementeurs", taux d'adoption par groupe.</p>
+  </a>
+  <a class="card link" href="/stats/scrutins">
+    <h3>Scrutins publics</h3>
+    <p>Discipline interne par groupe, top participants en scrutin nominatif.</p>
+  </a>
+  <a class="card link" href="/stats/clusters">
+    <h3>Doublons d'amendements</h3>
+    <p>Typologie automatique des amendements quasi-identiques (obstruction, convergence, amplification…).</p>
+  </a>
+</div>
+
+<h2 style="margin-top:32px">Vues taillées pour le partage</h2>
+<div class="grid grid-3 cards">
+  <a class="card link" href="/tops">
+    <h3>Tops & classements</h3>
+    <p>Huit classements clés en main, chacun téléchargeable en image (1080×1080 ou 1200×628).</p>
+  </a>
+  <a class="card link" href="/dissidents">
+    <h3>Mur des dissidents</h3>
+    <p>Députés qui votent le plus souvent à l'écart de la majorité de leur groupe (scrutins publics uniquement).</p>
+  </a>
+  <a class="card link" href="/comparer">
+    <h3>Comparateur</h3>
+    <p>Mettez deux députés côte à côte sur 8 métriques.</p>
+  </a>
+</div>
+
+<h2>Vue d'ensemble</h2>
+<table class="data-table">
+  <thead><tr><th>Type</th><th>Volume</th><th>Avec réponse</th><th>Délai moyen</th></tr></thead>
+  <tbody>
+  {% for r in overall.questions %}
+    <tr>
+      <td><strong>{{ r.type | qtype_long }}</strong></td>
+      <td>{{ r.c | fint }}</td>
+      <td>{{ r.answered | fint }} ({{ ((r.answered or 0) / (r.c or 1) * 100) | round(1) }}%)</td>
+      <td>{{ r.avg_delay | ffloat(1) }} j</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Députés par groupe</h2>
+{% set chart_data = [] %}
+{% for r in overall.groups %}{% set _ = chart_data.append({'label': r.groupe_libelle ~ ' (' ~ r.groupe_abrege ~ ')', 'value': r.deputies, 'color': r.groupe_couleur or '#6b7280'}) %}{% endfor %}
+{{ hbar_chart(chart_data, value_label='députés') }}
+
+{% endblock %}

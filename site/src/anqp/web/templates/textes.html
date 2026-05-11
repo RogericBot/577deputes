@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination, texte_subnav %}
+{% block title %}Textes{% endblock %}
+{% block content %}
+
+{{ texte_subnav('textes') }}
+
+<h1>Textes législatifs — 17ᵉ législature</h1>
+<p class="muted">{{ result.total | fint }} dossier{% if result.total > 1 %}s{% endif %} (projets et propositions de loi, rapports d'information, conventions…).</p>
+
+<form action="/textes" method="get" class="filter-bar">
+  <input type="search" name="q" value="{{ filters.q }}" placeholder="Recherche dans le titre…">
+  <select name="statut">
+    <option value="">Tous statuts</option>
+    {% for v in ['en_cours','adopte','promulgue','rejete','retire','caduc'] %}
+      <option value="{{ v }}" {% if filters.statut == v %}selected{% endif %}>{{ v | statut_dossier }}</option>
+    {% endfor %}
+  </select>
+  <select name="initiateur">
+    <option value="">Tous initiateurs</option>
+    {% for v in ['gouvernement','parlementaire','senat','autre'] %}
+      <option value="{{ v }}" {% if filters.initiateur == v %}selected{% endif %}>{{ v }}</option>
+    {% endfor %}
+  </select>
+  <select name="sort">
+    <option value="date_dernier_acte_desc" {% if filters.sort == 'date_dernier_acte_desc' %}selected{% endif %}>Activité récente</option>
+    <option value="date_depot_desc" {% if filters.sort == 'date_depot_desc' %}selected{% endif %}>Dépôt récent</option>
+    <option value="amendements_desc" {% if filters.sort == 'amendements_desc' %}selected{% endif %}>Plus d'amendements</option>
+    <option value="titre_asc" {% if filters.sort == 'titre_asc' %}selected{% endif %}>Titre A→Z</option>
+  </select>
+  <button type="submit">Filtrer</button>
+  <a class="btn-link" href="/textes">Réinitialiser</a>
+</form>
+
+{{ pagination(result, '/textes', filters) }}
+
+<table class="data-table results">
+  <thead>
+    <tr>
+      <th>Titre</th>
+      <th>Initiateur</th>
+      <th>Procédure</th>
+      <th>Dernier acte</th>
+      <th>Statut</th>
+      <th>Amendements</th>
+      <th>Scrutins</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for t in result.rows %}
+    <tr>
+      {% set tt = t.procedure_libelle | texte_type %}
+      <td>
+        <span class="type-pill type-{{ tt.key }}" title="{{ tt.long }}">{{ tt.label }}</span>
+        <a href="/textes/{{ t.uid }}">{{ t.titre | truncate(140) }}</a>
+      </td>
+      <td>{{ t.initiateur or '—' }}<br><span class="muted">{{ t.initiateur_type }}</span></td>
+      <td><span class="muted small">{{ t.procedure_libelle or '—' }}</span></td>
+      <td>{{ t.date_dernier_acte | fdate }}</td>
+      <td>
+        <span class="pill pill-{{ t.statut }}">{{ t.statut | statut_dossier }}</span>
+        {% if t.statut | is_terminal and t.date_dernier_acte %}
+          <div class="muted small">le {{ t.date_dernier_acte | fdate }}</div>
+        {% endif %}
+      </td>
+      <td>
+        {% if t.nb_amendements_total %}
+          <a href="/textes/{{ t.uid }}/amendements">{{ t.nb_amendements_total | fint }}</a>
+          {% if t.nb_amendements_adoptes %}<span class="muted">· {{ t.nb_amendements_adoptes }} adoptés</span>{% endif %}
+        {% else %}—{% endif %}
+      </td>
+      <td>{% if t.nb_scrutins %}{{ t.nb_scrutins }}{% else %}—{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="empty">Aucun texte ne correspond aux filtres.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{{ pagination(result, '/textes', filters) }}
+
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination %}
+{% block title %}Scrutins publics{% endblock %}
+{% block content %}
+
+<h1>Scrutins publics nominatifs — 17ᵉ législature</h1>
+<p class="muted">{{ result.total | fint }} scrutin{% if result.total > 1 %}s{% endif %}. Cette base ne couvre QUE les scrutins publics nominatifs. Les votes à main levée n'apparaissent pas.</p>
+
+<form action="/scrutins" method="get" class="filter-bar">
+  <input type="search" name="q" value="{{ filters.q }}" placeholder="Recherche dans le titre / objet…">
+  <select name="sort_filter">
+    <option value="">Tout sort</option>
+    <option value="adopté" {% if filters.sort_filter == 'adopté' %}selected{% endif %}>adopté</option>
+    <option value="rejeté" {% if filters.sort_filter == 'rejeté' %}selected{% endif %}>rejeté</option>
+  </select>
+  <input type="date" name="date_min" value="{{ filters.date_min }}">
+  <input type="date" name="date_max" value="{{ filters.date_max }}">
+  <select name="sort">
+    <option value="date_desc" {% if filters.sort == 'date_desc' %}selected{% endif %}>Plus récent</option>
+    <option value="date_asc" {% if filters.sort == 'date_asc' %}selected{% endif %}>Plus ancien</option>
+    <option value="numero_desc" {% if filters.sort == 'numero_desc' %}selected{% endif %}>n° décroissant</option>
+  </select>
+  <button type="submit">Filtrer</button>
+  <a class="btn-link" href="/scrutins">Réinitialiser</a>
+</form>
+
+{{ pagination(result, '/scrutins', filters) }}
+
+<table class="data-table results">
+  <thead>
+    <tr>
+      <th>n°</th>
+      <th>Date</th>
+      <th>Objet</th>
+      <th>Sort</th>
+      <th>Pour / Contre / Abst.</th>
+      <th>Texte lié</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for s in result.rows %}
+    <tr>
+      <td><a href="/scrutins/{{ s.uid }}">{{ s.numero }}</a></td>
+      <td>{{ s.date_scrutin | fdate }}</td>
+      <td><a href="/scrutins/{{ s.uid }}">{{ (s.titre or s.objet or '—') | truncate(140) }}</a></td>
+      <td><span class="scrutin-sort scrutin-sort-{{ s.sort_code or 'autre' }}">{{ s.sort_libelle or s.sort_code or '—' }}</span></td>
+      <td>
+        <span class="vote-pour">{{ s.nb_pour | fint }}</span> /
+        <span class="vote-contre">{{ s.nb_contre | fint }}</span> /
+        <span class="muted">{{ s.nb_abstentions | fint }}</span>
+      </td>
+      <td>{% if s.dossier_uid %}<a href="/textes/{{ s.dossier_uid }}">{{ s.dossier_titre | truncate(80) }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="empty">Aucun scrutin avec ces filtres.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{{ pagination(result, '/scrutins', filters) }}
+{% endblock %}

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination, group_badge, texte_subnav %}
+{% block title %}Amendements en doublons{% endblock %}
+{% block content %}
+
+{{ texte_subnav('clusters') }}
+
+<h1>Doublons d'amendements — détection automatique</h1>
+<p class="muted">
+  Le moteur identifie les groupes d'amendements dont la rédaction est très proche
+  (Jaccard ≥ 0,80 sur des shingles de 5 mots, après normalisation HTML/accents).
+  Chaque cluster est ensuite <strong>classé selon sa composition</strong> :
+  obstruction massive, convergence inter-groupes, amplification interne ou réutilisation triviale.
+</p>
+
+{# Bandeau résumé global #}
+<section class="card cluster-overview-card">
+  <div class="cluster-overview-grid">
+    <div class="cluster-overview-stat">
+      <span class="cluster-overview-num">{{ overview.total_clusters | fint }}</span>
+      <span class="cluster-overview-label">clusters détectés</span>
+    </div>
+    <div class="cluster-overview-stat">
+      <span class="cluster-overview-num">{{ overview.total_amdts_clusterises | fint }}</span>
+      <span class="cluster-overview-label">amendements en doublons</span>
+    </div>
+    <div class="cluster-overview-stat">
+      <span class="cluster-overview-num">{{ overview.pct_clusterises | round(1) }}%</span>
+      <span class="cluster-overview-label">du total des amendements</span>
+    </div>
+  </div>
+  <div class="cluster-types-bar">
+    {% for t in overview.by_type %}
+      <a class="cluster-type-chip {% if selected_type == t.key %}is-active{% endif %}"
+         href="/clusters{% if selected_type != t.key %}?type={{ t.key }}{% endif %}"
+         style="--type-color: {{ t.color }}"
+         title="{{ t.description }}">
+        <span class="cluster-type-dot" style="background: {{ t.color }}"></span>
+        <strong>{{ t.label }}</strong>
+        <span class="muted small">{{ t.n_clusters | fint }} clusters · {{ t.n_amdts | fint }} amdts</span>
+      </a>
+    {% endfor %}
+    {% if selected_type %}
+      <a class="btn-link" href="/clusters">↺ Tous les types</a>
+    {% endif %}
+    <a class="btn-link" href="/stats/clusters">📊 Voir le tableau de bord détaillé</a>
+  </div>
+</section>
+
+<p class="muted small">
+  {% if selected_type %}
+    Filtre actif : <strong>{{ types_catalog[selected_type].label }}</strong> —
+    {{ types_catalog[selected_type].description }}
+  {% else %}
+    {{ result.total | fint }} textes ont au moins un cluster détecté.
+  {% endif %}
+  Méthode : MinHash 64 hash + LSH 16 bandes ; recalculable via la CLI
+  <code>anqp cluster-amendements</code>.
+</p>
+
+{{ pagination(result, '/clusters', {'type': selected_type or ''}) }}
+
+{% for row in result.rows %}
+{% set d = row.dossier %}
+<details class="card sharable cluster-by-text"
+         data-share-title="Clusters quasi-identiques sur : {{ (d.titre or d.uid) | truncate(80) }}">
+  <summary class="cluster-text-head">
+    <span class="cluster-fold-caret">▶</span>
+    <div class="cluster-text-head-text">
+      <h3>
+        {% if d %}{{ (d.titre or d.uid) | truncate(140) }}{% else %}<span class="muted">{{ row.dossier.uid }}</span>{% endif %}
+      </h3>
+      <div class="muted small">
+        {% if d.statut %}<span class="pill pill-{{ d.statut }}">{{ d.statut | statut_dossier }}</span>{% endif %}
+        <strong>{{ row.n_clusters | fint }}</strong> clusters ·
+        <strong>{{ row.n_amdts_clusterises | fint }}</strong> amendements en doublons
+        {% if d.nb_amendements_total %}
+          sur {{ d.nb_amendements_total | fint }} déposés
+          ({{ ((row.n_amdts_clusterises or 0) * 100 / d.nb_amendements_total) | round(1) }}%)
+        {% endif %}
+      </div>
+    </div>
+  </summary>
+
+  <div class="cluster-text-body">
+    <p class="muted small" style="margin: 0 0 8px;">
+      <a href="/textes/{{ d.uid }}">→ Voir le texte complet</a>
+    </p>
+    <ul class="cluster-list">
+      {% for c in row.clusters %}
+        {% set dom = c.dominant %}
+        {% set color = (dom.groupe_couleur if dom else '#cbd5e1') or '#cbd5e1' %}
+        <li class="cluster-row" style="border-left-color: {{ color }};">
+          <div class="cluster-row-head">
+            <span class="cluster-pill" style="background:{{ color }}">
+              {{ dom.groupe_abrege if dom and dom.groupe_abrege else '?' }}
+            </span>
+            <strong>{{ c.size }} amendement{% if c.size > 1 %}s</strong> quasi-identique{% if c.size > 1 %}s{% endif %}{% else %}</strong>{% endif %}
+            {% if c.type %}
+              <span class="cluster-type-badge" style="background: {{ c.type.color }}"
+                    title="{{ c.type.description }}">
+                {{ c.type.label }}
+              </span>
+            {% endif %}
+          </div>
+          {% if c.breakdown %}
+            <div class="cluster-breakdown muted small">
+              Répartition :
+              {% for b in c.breakdown %}
+                <span class="bk-chip" title="{{ b.groupe_libelle or b.groupe_abrege or '—' }}">
+                  <span class="bk-dot" style="background:{{ b.groupe_couleur or '#cbd5e1' }}"></span>
+                  <strong>{{ b.n }}</strong>
+                  {{ b.groupe_abrege or '—' }}
+                  <span class="muted">({{ (b.n * 100.0 / c.size) | round(0) | int }}%)</span>
+                </span>{% if not loop.last %} · {% endif %}
+              {% endfor %}
+            </div>
+          {% endif %}
+          <details class="cluster-details">
+            <summary class="muted small">Voir un échantillon ({{ c.sample | length }} amendements)</summary>
+            <table class="data-table compact" style="margin-top:6px">
+              <thead><tr><th>n°</th><th>Auteur</th><th>Article</th><th>Sort</th><th>Texte (extrait)</th></tr></thead>
+              <tbody>
+                {% for m in c.sample %}
+                <tr>
+                  <td><a href="/amendements/{{ m.uid }}">{{ m.numero or '—' }}</a></td>
+                  <td>{{ m.auteur_nom_complet or '—' }}</td>
+                  <td>{{ m.article_designation or '—' }}</td>
+                  <td>{% if m.sort %}<span class="pill pill-sort-{{ m.sort | lower | replace(' ','-') }}">{{ m.sort }}</span>{% endif %}</td>
+                  <td class="muted small">{{ (m.preview or '') | striptags | truncate(140) }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </details>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</details>
+{% else %}
+<p class="empty">
+  {% if selected_type %}
+    Aucun cluster de type « {{ types_catalog[selected_type].label }} » détecté
+    avec ce filtre. <a href="/clusters">→ Voir tous les clusters</a>.
+  {% else %}
+    Aucun cluster détecté. Lance <code>anqp cluster-amendements</code> pour calculer les similarités
+    (5–8 minutes sur la 17ᵉ législature).
+  {% endif %}
+</p>
+{% endfor %}
+
+{{ pagination(result, '/clusters', {'type': selected_type or ''}) }}
+{% endblock %}

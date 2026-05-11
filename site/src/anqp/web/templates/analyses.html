@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge %}
+{% block title %}Analyses{% endblock %}
+{% block content %}
+
+<h1>Analyses & détections</h1>
+<div class="coalitions-intro">
+  Trois outils qui révèlent des comportements quantifiables à partir des
+  données ouvertes : <strong>réponses ministérielles dupliquées</strong>
+  (langue de bois mesurée), <strong>absentéisme stratégique</strong>
+  (députés qui fuient les scrutins serrés), <strong>amendements
+  fantômes</strong> (déposés mais jamais défendus en séance).
+  <a href="/a-propos#analyses">Méthodologie complète →</a>
+</div>
+
+<nav class="coalitions-tabs">
+  <a href="/analyses?tab=templates" class="{% if tab == 'templates' %}active{% endif %}">Réponses templates</a>
+  <a href="/analyses?tab=absenteisme" class="{% if tab == 'absenteisme' %}active{% endif %}">Absentéisme stratégique</a>
+  <a href="/analyses?tab=fantomes" class="{% if tab == 'fantomes' %}active{% endif %}">Amendements fantômes</a>
+</nav>
+
+
+{# ============================================================ #}
+{# TAB 1 — Réponses ministérielles templates                    #}
+{# ============================================================ #}
+{% if tab == 'templates' %}
+{% set t = data.templates %}
+<section>
+  <h2>Réponses ministérielles dupliquées (langue de bois quantifiée)</h2>
+  <p class="muted">
+    <strong>Ce que ça mesure :</strong> les ministères répondent aux
+    questions parlementaires en réutilisant parfois littéralement le
+    même texte sur des questions <em>différentes</em>. C'est la fameuse
+    « réponse template » qui n'engage à rien.
+  </p>
+  <p class="muted">
+    <strong>Comment c'est détecté :</strong> on prend les 250 premiers
+    caractères significatifs (après nettoyage HTML et retrait des
+    formules de politesse) de chaque réponse. Si ce préfixe apparaît
+    sur <strong>3 questions différentes ou plus</strong>, on a une
+    suspicion de template.
+  </p>
+
+  <section class="grid grid-3 cards" style="margin: 24px 0;">
+    <div class="card">
+      <h3>Réponses analysées</h3>
+      <p class="big">{{ t.total_responses | fint }}</p>
+      <p class="muted">questions ayant reçu une réponse ministérielle</p>
+    </div>
+    <div class="card">
+      <h3>Réponses répétées</h3>
+      <p class="big">{{ t.total_template | fint }}</p>
+      <p class="muted">soit <strong>{{ t.template_rate }} %</strong> sont des copies presque exactes d'autres réponses</p>
+    </div>
+    <div class="card">
+      <h3>Templates distincts</h3>
+      <p class="big">{{ t.n_clusters_total | fint }}</p>
+      <p class="muted">groupes de réponses identiques détectés</p>
+    </div>
+  </section>
+
+  <h3>Top {{ t.clusters | length }} templates les plus réutilisés</h3>
+
+  {% for c in t.clusters %}
+  <article class="card sharable" data-share-title="Template ministériel réutilisé {{ c.n_reponses }} fois" style="margin-bottom: 16px;">
+    <header style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
+      <h4 style="margin: 0;">
+        Template n°{{ loop.index }} — réutilisé
+        <strong style="color: var(--bad);">{{ c.n_reponses }} fois</strong>
+      </h4>
+      <span class="muted small">
+        {{ c.n_auteurs }} député{% if c.n_auteurs > 1 %}s{% endif %} interrogé{% if c.n_auteurs > 1 %}s{% endif %} ·
+        {{ c.n_ministeres }} ministère{% if c.n_ministeres > 1 %}s{% endif %} concerné{% if c.n_ministeres > 1 %}s{% endif %}
+      </span>
+    </header>
+    <details>
+      <summary class="muted small" style="margin-top: 8px; cursor: pointer;">
+        Voir l'extrait du template et les questions concernées
+      </summary>
+      <blockquote style="margin: 12px 0; padding: 10px 14px; background: var(--surface-alt); border-left: 3px solid var(--bad); font-style: italic; font-size: 13px; line-height: 1.5;">
+        {{ c.preview | truncate(380) }}…
+      </blockquote>
+      <p class="muted small" style="margin-bottom: 6px;"><strong>Ministère(s) :</strong> {{ c.ministeres | join(', ') if c.ministeres else '—' }}</p>
+      <table class="data-table compact" style="margin-top: 8px;">
+        <thead>
+          <tr><th>Question</th><th>Auteur</th><th>Date réponse</th></tr>
+        </thead>
+        <tbody>
+          {% for q in c.sample %}
+          <tr>
+            <td><a href="/questions/{{ q.uid }}">{{ (q.titre or 'sans titre') | truncate(70) }}</a></td>
+            <td>{{ q.auteur_nom_complet or '—' }}</td>
+            <td>{{ q.date_reponse | fdate }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  </article>
+  {% else %}
+    <p class="empty">Aucun template détecté avec les critères actuels.</p>
+  {% endfor %}
+
+  <p class="muted small" style="margin-top: 24px;">
+    ⚠️ <strong>Limite</strong> : un template peut être pertinent
+    (rappel d'un cadre légal commun à plusieurs questions). Cette
+    détection signale un fait quantifiable, pas un jugement.
+  </p>
+</section>
+{% endif %}
+
+
+{# ============================================================ #}
+{# TAB 2 — Absentéisme stratégique                              #}
+{# ============================================================ #}
+{% if tab == 'absenteisme' %}
+{% set a = data.absence %}
+<section>
+  <h2>Absentéisme stratégique : qui fuit les scrutins serrés ?</h2>
+  <p class="muted">
+    <strong>Ce que ça mesure :</strong> certains députés sont assidus
+    aux scrutins consensuels (où leur vote ne change rien au résultat)
+    mais absents aux scrutins serrés (où chaque voix compte). C'est
+    une stratégie d'évitement des votes politiquement embarrassants.
+  </p>
+  <p class="muted">
+    <strong>Comment c'est calculé :</strong>
+  </p>
+  <ul class="muted">
+    <li><strong>Scrutins clivants</strong> : écart |pour − contre|
+      ≤ 10 % du total exprimé.</li>
+    <li><strong>Scrutins consensuels</strong> : écart > 50 % du total
+      exprimé.</li>
+    <li>Pour chaque député, on compare son taux de présence sur ces
+      deux catégories. Le tableau ci-dessous classe les députés par
+      <strong>écart absolu (présence consensuelle − présence clivante)</strong>
+      décroissant.</li>
+    <li>Filtre : seuls les députés actifs ayant participé à au moins
+      <strong>{{ a.min_clivants }} scrutins clivants</strong> sont inclus.</li>
+  </ul>
+
+  <table class="data-table sharable" data-share-title="Top députés qui fuient les scrutins serrés" style="margin-top: 20px;">
+    <thead>
+      <tr>
+        <th>Député</th>
+        <th>Groupe</th>
+        <th>Présence consensuels</th>
+        <th>Présence clivants</th>
+        <th>Écart (= fuite)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in a.rows %}
+      <tr>
+        <td><a href="/deputes/{{ r.uid }}">{{ r.nom_complet }}</a>
+          {% if r.departement %}<span class="muted small"> · {{ r.departement }}</span>{% endif %}
+        </td>
+        <td>{{ group_badge(r.groupe_abrege, r.groupe_libelle, r.groupe_couleur) }}</td>
+        <td>
+          <strong>{{ r.pct_pres_con }} %</strong>
+          <span class="muted small">({{ r.pres_con }} / {{ r.tot_con }})</span>
+        </td>
+        <td>
+          <strong>{{ r.pct_pres_cli }} %</strong>
+          <span class="muted small">({{ r.pres_cli }} / {{ r.tot_cli }})</span>
+        </td>
+        <td>
+          <strong style="color: {% if r.gap > 20 %}var(--bad){% elif r.gap > 10 %}var(--warn){% else %}var(--muted){% endif %};">
+            +{{ r.gap | round(1) }} pts
+          </strong>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty">Aucun député ne correspond aux critères.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="muted small" style="margin-top: 20px;">
+    ⚠️ <strong>Limite</strong> : un écart peut s'expliquer par des
+    raisons légitimes (mandat local, déplacement officiel, santé,
+    grossesse, démission tardive). C'est un indicateur statistique,
+    pas une accusation.
+  </p>
+</section>
+{% endif %}
+
+
+{# ============================================================ #}
+{# TAB 3 — Amendements fantômes                                 #}
+{# ============================================================ #}
+{% if tab == 'fantomes' %}
+{% set p = data.phantom %}
+<section>
+  <h2>Amendements fantômes : déposés mais jamais défendus</h2>
+
+  <section class="card" style="background: var(--warn-soft); border-color: var(--warn); margin-bottom: 24px;">
+    <h3 style="margin-top: 0; color: var(--warn);">💡 Ce que cette analyse révèle</h3>
+    <p style="margin-bottom: 8px;">
+      Tout amendement peut être <strong>déposé</strong>. Mais pour
+      avoir un effet, il doit être <strong>défendu en séance ou en
+      commission</strong>. Un député peut très bien déposer 500
+      amendements et n'en défendre aucun.
+    </p>
+    <p style="margin-bottom: 8px;">
+      Quand le ratio « amendements défendus / amendements déposés »
+      est très bas, ça peut révéler :
+    </p>
+    <ul style="margin-bottom: 8px;">
+      <li><strong>Une stratégie de communication</strong> : déposer
+        pour annoncer « j'ai pris position », sans intention réelle de
+        défendre le texte.</li>
+      <li><strong>Une stratégie d'obstruction collective</strong> :
+        des centaines d'amendements similaires déposés pour ralentir
+        l'examen d'un texte.</li>
+      <li><strong>Une délégation politique</strong> : l'amendement
+        est déposé au nom du groupe, défendu par un autre député
+        désigné.</li>
+    </ul>
+    <p style="margin-bottom: 0;">
+      Ce n'est <strong>pas</strong> une mesure de « paresse ». C'est
+      une mesure de l'écart entre la production déclarative et l'action
+      effective en hémicycle. À croiser avec d'autres indicateurs
+      (questions posées, présence en séance) pour conclure.
+    </p>
+  </section>
+
+  <p class="muted">
+    <strong>Méthode :</strong>
+  </p>
+  <ul class="muted">
+    <li><strong>Défendus</strong> : amendements avec sort
+      <code>Adopté</code>, <code>Rejeté</code>, <code>Retiré</code>
+      (après examen) ou <code>Discuté</code>.</li>
+    <li><strong>Fantômes</strong> : amendements avec sort
+      <code>Non soutenu</code> (pas défendu en séance) ou sans sort
+      enregistré.</li>
+    <li>Filtre : députés ayant déposé au moins
+      <strong>{{ p.min_amdts }} amendements</strong> (seuil de
+      pertinence statistique).</li>
+  </ul>
+
+  <table class="data-table sharable" data-share-title="Députés au plus haut taux d'amendements jamais défendus" style="margin-top: 20px;">
+    <thead>
+      <tr>
+        <th>Député</th>
+        <th>Groupe</th>
+        <th>Total déposés</th>
+        <th>Défendus</th>
+        <th>Fantômes</th>
+        <th>% fantômes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in p.rows %}
+      <tr>
+        <td><a href="/deputes/{{ r.uid }}">{{ r.nom_complet }}</a>
+          {% if r.departement %}<span class="muted small"> · {{ r.departement }}</span>{% endif %}
+        </td>
+        <td>{{ group_badge(r.groupe_abrege, r.groupe_libelle, r.groupe_couleur) }}</td>
+        <td><strong>{{ r.total | fint }}</strong></td>
+        <td>{{ r.defendus | fint }} <span class="muted small">({{ r.pct_defense }} %)</span></td>
+        <td>{{ r.fantomes | fint }}</td>
+        <td>
+          <strong style="color: {% if r.pct_fantomes > 70 %}var(--bad){% elif r.pct_fantomes > 50 %}var(--warn){% else %}var(--muted){% endif %};">
+            {{ r.pct_fantomes }} %
+          </strong>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">Aucun député ne correspond aux critères.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="muted small" style="margin-top: 20px;">
+    {{ p.n_total_eligibles }} député{% if p.n_total_eligibles > 1 %}s{% endif %} éligibles au calcul
+    (avec ≥ {{ p.min_amdts }} amendements déposés). Affiché : top {{ p.rows | length }} par % de fantômes.
+  </p>
+</section>
+{% endif %}
+
+{% endblock %}

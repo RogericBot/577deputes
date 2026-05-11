@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import hbar_chart, chart_button %}
+{% block title %}Stats — Ministères{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Ministères</nav>
+<h1>Top ministères interpellés</h1>
+
+{% set chart_data = [] %}
+{% for r in rows %}{% set _ = chart_data.append({'label': r.ministere, 'value': r.questions_total, 'color': '#4f46e5'}) %}{% endfor %}
+{{ hbar_chart(chart_data, value_label='questions') }}
+{{ chart_button(chart_data, "Top ministères interpellés — 17ᵉ législature", subtitle="Nombre de questions parlementaires reçues", unit="questions") }}
+
+{% set delay_data = [] %}
+{% for r in rows %}{% if r.delai_moyen %}{% set _ = delay_data.append({'label': r.ministere, 'value': r.delai_moyen, 'color': '#d97706'}) %}{% endif %}{% endfor %}
+{{ chart_button(delay_data, "Délai moyen de réponse par ministère", subtitle="Jours moyens entre dépôt et publication de la réponse", unit="jours", label="Voir le délai moyen") }}
+
+<table class="data-table">
+  <thead><tr><th>Ministère</th><th>Questions</th><th>Avec réponse</th><th>Délai moyen (j)</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><a href="/questions?ministere={{ r.ministere | urlencode }}">{{ r.ministere }}</a></td>
+      <td>{{ r.questions_total | fint }}</td>
+      <td>{{ r.questions_answered | fint }}{% if r.questions_total %} <span class="muted">({{ ((r.questions_answered or 0) / r.questions_total * 100) | round(1) }}%)</span>{% endif %}</td>
+      <td>{{ r.avg_delay | ffloat(1) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

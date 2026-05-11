@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination, status_pill, group_badge %}
+{% block title %}Questions{% endblock %}
+{% block content %}
+
+<h1>Questions parlementaires</h1>
+
+<form action="/questions" method="get" class="filter-bar">
+  <input type="search" name="q" value="{{ filters.q }}" placeholder="Rechercher (texte intégral)…">
+  <select name="type" aria-label="Type de question">
+    <option value="">Tous les types</option>
+    <option value="QE" {% if filters.type == 'QE' %}selected{% endif %}>Question écrite</option>
+    <option value="QOSD" {% if filters.type == 'QOSD' %}selected{% endif %}>Question orale</option>
+    <option value="QG" {% if filters.type == 'QG' %}selected{% endif %}>Question au Gouvernement</option>
+  </select>
+  <select name="statut" aria-label="Statut">
+    <option value="">Tout statut</option>
+    <option value="avec_reponse" {% if filters.statut == 'avec_reponse' %}selected{% endif %}>Avec réponse</option>
+    <option value="sans_reponse" {% if filters.statut == 'sans_reponse' %}selected{% endif %}>Sans réponse</option>
+    <option value="cloturee" {% if filters.statut == 'cloturee' %}selected{% endif %}>Clôturée</option>
+  </select>
+  <select name="groupe_uid" aria-label="Groupe parlementaire">
+    <option value="">Tous groupes</option>
+    {% for g in facets.groups %}
+      <option value="{{ g.uid }}" {% if filters.groupe_uid == g.uid %}selected{% endif %}>{{ g.libelle_abrege }} — {{ g.libelle }}</option>
+    {% endfor %}
+  </select>
+  <select name="ministere" aria-label="Ministère">
+    <option value="">Tous ministères</option>
+    {% for m in facets.ministries %}
+      <option value="{{ m.m }}" {% if filters.ministere == m.m %}selected{% endif %}>{{ m.m }} ({{ m.c | fint }})</option>
+    {% endfor %}
+  </select>
+  <select name="rubrique" aria-label="Thème">
+    <option value="">Toutes rubriques</option>
+    {% for r in facets.rubriques %}
+      <option value="{{ r.rubrique }}" {% if filters.rubrique == r.rubrique %}selected{% endif %}>{{ r.rubrique }} ({{ r.c }})</option>
+    {% endfor %}
+  </select>
+  <select name="departement" aria-label="Département">
+    <option value="">Tous départements</option>
+    {% for d in facets.departements %}
+      <option value="{{ d.code }}" {% if filters.departement == d.code %}selected{% endif %}>{{ d.code }} — {{ d.name }}</option>
+    {% endfor %}
+  </select>
+  <input type="date" name="date_min" value="{{ filters.date_min }}" aria-label="Depuis">
+  <input type="date" name="date_max" value="{{ filters.date_max }}" aria-label="Jusqu’à">
+  <select name="sort" aria-label="Tri">
+    <option value="date_q_desc" {% if filters.sort == 'date_q_desc' %}selected{% endif %}>Plus récent (question)</option>
+    <option value="date_q_asc"  {% if filters.sort == 'date_q_asc'  %}selected{% endif %}>Plus ancien (question)</option>
+    <option value="date_r_desc" {% if filters.sort == 'date_r_desc' %}selected{% endif %}>Plus récent (réponse)</option>
+    <option value="delai_desc"  {% if filters.sort == 'delai_desc'  %}selected{% endif %}>Délai le plus long</option>
+    <option value="delai_asc"   {% if filters.sort == 'delai_asc'   %}selected{% endif %}>Délai le plus court</option>
+    <option value="auteur_asc"  {% if filters.sort == 'auteur_asc'  %}selected{% endif %}>Auteur (A→Z)</option>
+  </select>
+  <input type="hidden" name="page_size" value="{{ filters.page_size }}">
+  <button type="submit">Filtrer</button>
+  <a class="btn-link" href="/questions">Réinitialiser</a>
+</form>
+
+{% set filter_qs = [] %}
+{% for k, v in filters.items() if v not in (None, '') %}{% set _ = filter_qs.append(k ~ '=' ~ v|urlencode) %}{% endfor %}
+<div class="export-row">
+  <a class="btn" href="/export/questions.csv?{{ filter_qs|join('&') }}">Export CSV</a>
+  <a class="btn" href="/export/questions.json?{{ filter_qs|join('&') }}">Export JSON</a>
+  <a class="btn" href="/api/questions?{{ filter_qs|join('&') }}">API JSON</a>
+</div>
+
+{{ pagination(result, '/questions', filters) }}
+
+<table class="data-table results">
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>n°</th>
+      <th>Auteur</th>
+      <th>Ministère</th>
+      <th>Sujet</th>
+      <th>Date Q.</th>
+      <th>Date R.</th>
+      <th>Délai</th>
+      <th>Statut</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for q in result.rows %}
+    <tr>
+      <td><span class="qtype qtype-{{ q.type | lower }}" title="{{ q.type | qtype_long }}">{{ q.type | qtype_short }}</span></td>
+      <td><a href="/questions/{{ q.uid }}">{{ q.numero or q.uid }}</a></td>
+      <td>
+        {% if q.auteur_uid %}<a href="/deputes/{{ q.auteur_uid }}">{{ q.auteur_nom_complet or q.auteur_uid }}</a>{% else %}—{% endif %}
+        {% if q.auteur_groupe_abrege %} <span class="muted">·</span> {{ q.auteur_groupe_abrege }}{% endif %}
+      </td>
+      <td>{{ q.ministere_interroge_court or '—' }}</td>
+      <td><a href="/questions/{{ q.uid }}">{{ q.titre or q.rubrique or '(sans titre)' }}</a></td>
+      <td>{{ q.date_question | fdate }}</td>
+      <td>{{ q.date_reponse | fdate }}</td>
+      <td>{{ q.delai_reponse_jours | fint if q.delai_reponse_jours is not none else '—' }}</td>
+      <td>{{ status_pill(q.statut) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="empty">Aucune question ne correspond à ces filtres.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{{ pagination(result, '/questions', filters) }}
+
+{% endblock %}

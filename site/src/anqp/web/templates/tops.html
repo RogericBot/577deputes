@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge, chart_button %}
+{% block title %}Tops{% endblock %}
+{% block content %}
+
+<h1>Tops & classements</h1>
+<p class="muted">Huit angles pour partager rapidement un fait marquant. Chaque carte est autonome et téléchargeable en image (carré ou paysage).</p>
+
+<div class="card" style="background: var(--primary-soft); border-color: var(--primary); margin-bottom: 16px;">
+  <h3 style="margin-top: 0;">Construis ton propre top</h3>
+  <p class="muted" style="margin-bottom: 8px;">
+    Choisis parmi <strong>30+ métriques</strong> (députés, textes, scrutins, ministères, groupes, amendements, questions),
+    ajoute des filtres optionnels, génère ton classement personnalisé et partage-le par URL.
+  </p>
+  <a class="btn" href="/tops/custom">→ Ouvrir le constructeur de top</a>
+</div>
+
+<div class="grid grid-2 cards tops-grid">
+
+  {# 1. Députés les plus actifs #}
+  {% set chart1 = [] %}
+  {% for r in data.deputes_actifs %}
+    {% set _ = chart1.append({'label': r.nom_complet ~ (' · ' ~ r.groupe_abrege if r.groupe_abrege else ''), 'value': r.n_q + r.n_a + r.n_v, 'color': r.groupe_couleur or '#4f46e5'}) %}
+  {% endfor %}
+  <section class="card sharable" data-share-title="Top 10 des députés les plus actifs">
+    <h3><span class="rank-chip">1</span> Députés les plus actifs</h3>
+    <p class="muted small">Cumul : questions posées + amendements déposés + votes exprimés.</p>
+    <ol class="rank-list">
+    {% for r in data.deputes_actifs %}
+      <li>
+        <a href="/deputes/{{ r.uid }}">{{ r.nom_complet }}</a>
+        {{ group_badge(r.groupe_abrege, '', r.groupe_couleur) }}
+        <span class="muted">{{ (r.n_q + r.n_a + r.n_v) | fint }} actes</span>
+      </li>
+    {% endfor %}
+    </ol>
+    {{ chart_button(chart1, "Top 10 — Députés les plus actifs", subtitle="Cumul questions + amendements + votes exprimés (17ᵉ législature)", unit="actes") }}
+  </section>
+
+  {# 2. Présents en scrutin #}
+  {% set chart2 = [] %}
+  {% for r in data.deputes_presents %}
+    {% set _ = chart2.append({'label': r.nom_complet ~ (' · ' ~ r.groupe_abrege if r.groupe_abrege else ''), 'value': r.n_votes, 'color': r.groupe_couleur or '#4f46e5'}) %}
+  {% endfor %}
+  <section class="card sharable" data-share-title="Top 10 — Présents en scrutin public">
+    <h3><span class="rank-chip">2</span> Présents en scrutin public</h3>
+    <p class="muted small">Députés ayant exprimé le plus de votes (pour / contre / abstention).</p>
+    <ol class="rank-list">
+    {% for r in data.deputes_presents %}
+      <li>
+        <a href="/deputes/{{ r.uid }}">{{ r.nom_complet }}</a>
+        {{ group_badge(r.groupe_abrege, '', r.groupe_couleur) }}
+        <span class="muted">{{ r.n_votes | fint }} votes</span>
+      </li>
+    {% endfor %}
+    </ol>
+    {{ chart_button(chart2, "Top 10 — Présents en scrutin public", subtitle="Votes exprimés (pour / contre / abstention) sur les ~6 500 scrutins nominatifs", unit="votes") }}
+  </section>
+
+  {# 3. Amdts les plus cosignés #}
+  {% set chart3 = [] %}
+  {% for r in data.amdts_cosignes %}
+    {% set _ = chart3.append({'label': 'amdt n°' ~ (r.numero or '?') ~ (' — ' ~ r.auteur_nom_complet if r.auteur_nom_complet else ''), 'value': r.cosignataires_count, 'color': '#7c3aed'}) %}
+  {% endfor %}
+  <section class="card sharable" data-share-title="Top 10 — Amendements les plus cosignés">
+    <h3><span class="rank-chip">3</span> Amendements les plus cosignés</h3>
+    <p class="muted small">Amendements emportant le plus de signatures groupées.</p>
+    <ol class="rank-list">
+    {% for r in data.amdts_cosignes %}
+      <li>
+        <a href="/amendements/{{ r.uid }}">amdt {% if r.numero %}n°{{ r.numero }}{% else %}sans n°{% endif %}</a>
+        — {{ r.auteur_nom_complet or '—' }}
+        {% if r.groupe_abrege %}<span class="muted">· {{ r.groupe_abrege }}</span>{% endif %}
+        <span class="muted">{{ r.cosignataires_count }} cosig.</span>
+      </li>
+    {% endfor %}
+    </ol>
+    {{ chart_button(chart3, "Top 10 — Amendements les plus cosignés", subtitle="Nombre de cosignataires par amendement (17ᵉ législature)", unit="cosignataires") }}
+  </section>
+
+  {# 4. Questions sans réponse #}
+  {% set chart4 = [] %}
+  {% for r in data.questions_orphelines %}
+    {% set _ = chart4.append({'label': (r.titre or 'sans titre') ~ ' — ' ~ (r.auteur_nom_complet or '?'), 'value': (r.jours_attente or 0) | int, 'color': '#dc2626'}) %}
+  {% endfor %}
+  <section class="card sharable" data-share-title="Top 10 — Questions sans réponse depuis le plus longtemps">
+    <h3><span class="rank-chip">4</span> Questions sans réponse</h3>
+    <p class="muted small">Statut "sans réponse", classement par date de dépôt croissante.</p>
+    <ol class="rank-list">
+    {% for r in data.questions_orphelines %}
+      <li>
+        <a href="/questions/{{ r.uid }}">{{ (r.titre or 'sans titre') | truncate(70) }}</a>
+        <div class="meta">
+          {{ r.auteur_nom_complet or '—' }}
+          · {{ r.ministere_interroge_court or '—' }}
+          · <strong>{{ r.jours_attente | int }} jours</strong>
+        </div>
+      </li>
+    {% endfor %}
+    </ol>
+    {{ chart_button(chart4, "Top 10 — Questions sans réponse depuis le plus longtemps", subtitle="Jours écoulés depuis le dépôt, statut sans réponse", unit="jours") }}
+  </section>
+
+  {# 5. Ministères les plus lents #}
+  {% set chart5 = [] %}
+  {% for r in data.ministeres_lents %}
+    {% set _ = chart5.append({'label': r.ministere, 'value': r.delai_moyen, 'color': '#d97706'}) %}
+  {% endfor %}
+  <section class="card sharable" data-share-title="Top 10 — Ministères les plus lents à répondre">
+    <h3><span class="rank-chip">5</span> Ministères les plus lents à répondre</h3>
+    <p class="muted small">Délai moyen sur les questions ayant reçu une réponse (≥ 30 questions).</p>
+    <ol class="rank-list">
+    {% for r in data.ministeres_lents %}
+      <li>
+        <a href="/questions?ministere={{ r.ministere | urlencode }}">{{ r.ministere }}</a>
+        — <strong>{{ r.delai_moyen | ffloat(1) }} j</strong>
+        <span class="muted">({{ r.questions_repondues }}/{{ r.questions_total }} répondues)</span>
+      </li>
+    {% endfor %}
+    </ol>
+    {{ chart_button(chart5, "Top 10 — Ministères les plus lents à répondre", subtitle="Délai moyen de réponse en jours (≥ 30 questions par ministère)", unit="jours") }}
+  </section>
+
+  {# 6. Textes les plus amendés #}
+  {% set chart6 = [] %}
+  {% for r in data.textes_chauds %}
+    {% set _ = chart6.append({'label': r.titre, 'value': r.nb_amendements_total, 'color': '#0ea5e9'}) %}
+  {% endfor %}
+  <section class="card sharable" data-share-title="Top 10 — Textes les plus amendés">
+    <h3><span class="rank-chip">6</span> Textes les plus amendés</h3>
+    <p class="muted small">Volume d'amendements déposés (commission + séance).</p>
+    <ol class="rank-list">
+    {% for r in data.textes_chauds %}
+      <li>
+        <a href="/textes/{{ r.uid }}">{{ r.titre | truncate(70) }}</a>
+        <div class="meta">
+          <span class="pill pill-{{ r.statut }}">{{ r.statut | statut_dossier }}</span>
+          · <strong>{{ r.nb_amendements_total | fint }}</strong> amdts
+          ({{ r.nb_amendements_adoptes | fint }} adoptés)
+          {% if r.nb_doublons %}
+            · <a href="/clusters" class="muted small">{{ r.nb_doublons | fint }} potentiels doublons</a>
+          {% endif %}
+        </div>
+      </li>
+    {% endfor %}
+    </ol>
+    {{ chart_button(chart6, "Top 10 — Textes les plus amendés", subtitle="Volume total d'amendements déposés (commission + séance)", unit="amendements") }}
+  </section>
+
+  {# 7. Discipline #}
+  {% set chart7 = [] %}
+  {% for r in data.discipline_top %}
+    {% set _ = chart7.append({'label': r.nom_complet ~ (' · ' ~ r.groupe_abrege if r.groupe_abrege else ''), 'value': r.discipline_pct | round(1), 'color': r.groupe_couleur or '#15803d'}) %}
+  {% endfor %}
+  <section class="card sharable" data-share-title="Top 10 — Députés les plus alignés sur leur groupe">
+    <h3><span class="rank-chip">7</span> Députés les plus alignés sur leur groupe</h3>
+    <p class="muted small">Ratio de votes alignés sur la majorité de leur groupe (≥ 50 votes).</p>
+    <ol class="rank-list">
+    {% for r in data.discipline_top %}
+      <li>
+        <a href="/deputes/{{ r.uid }}">{{ r.nom_complet }}</a>
+        {{ group_badge(r.groupe_abrege, '', r.groupe_couleur) }}
+        — <strong>{{ r.discipline_pct | round(1) }}%</strong>
+        <span class="muted">({{ r.aligned }} / {{ r.expressed }})</span>
+      </li>
+    {% endfor %}
+    </ol>
+    {{ chart_button(chart7, "Top 10 — Députés les plus alignés sur leur groupe", subtitle="Ratio de votes alignés sur la majorité du groupe (≥ 50 votes exprimés)", unit="%") }}
+  </section>
+
+  {# 8. Scrutins les plus serrés #}
+  {% set chart8 = [] %}
+  {% for r in data.scrutins_serres %}
+    {% set _ = chart8.append({'label': 'n°' ~ r.numero ~ ' — ' ~ ((r.titre or '—') | truncate(60)), 'value': r.ecart, 'color': '#db2777'}) %}
+  {% endfor %}
+  <section class="card sharable" data-share-title="Top 10 — Scrutins les plus serrés">
+    <h3><span class="rank-chip">8</span> Scrutins les plus serrés</h3>
+    <p class="muted small">Plus petit écart entre le pour et le contre.</p>
+    <ol class="rank-list">
+    {% for r in data.scrutins_serres %}
+      <li>
+        <a href="/scrutins/{{ r.uid }}">n° {{ r.numero }}</a>
+        — {{ (r.titre or '—') | truncate(60) }}
+        <div class="meta">
+          {{ r.date_scrutin | fdate }}
+          · {{ r.nb_pour }} pour / {{ r.nb_contre }} contre
+          (<strong>écart {{ r.ecart }}</strong>)
+        </div>
+      </li>
+    {% endfor %}
+    </ol>
+    {{ chart_button(chart8, "Top 10 — Scrutins les plus serrés", subtitle="Écart entre les voix pour et contre (scrutins publics 17ᵉ législature)", unit="voix d'écart") }}
+  </section>
+
+</div>
+
+{% endblock %}

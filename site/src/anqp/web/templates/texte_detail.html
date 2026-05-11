@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% from "_macros.html" import hbar_chart, group_badge, texte_subnav, chart_button %}
+{% block title %}{{ d.titre | truncate(60) }}{% endblock %}
+{% block content %}
+
+{{ texte_subnav('textes') }}
+<nav class="breadcrumb"><a href="/textes">Textes</a> / <span class="muted">{{ d.uid }}</span></nav>
+
+<article class="texte-detail">
+  {% set tt = d.procedure_libelle | texte_type %}
+  <header class="card">
+    <p class="meta">
+      <span class="type-pill type-pill-lg type-{{ tt.key }}" title="{{ tt.long }}">{{ tt.label }}</span>
+      <span class="pill pill-{{ d.statut }}">{{ d.statut | statut_dossier }}</span>
+      {% if d.statut | is_terminal and d.date_dernier_acte %}
+        <span class="muted">le {{ d.date_dernier_acte | fdate }}</span>
+      {% endif %}
+      <span class="muted">·</span>
+      <span class="muted">Initiateur :</span> <strong>{{ d.initiateur or '—' }}</strong>
+      <span class="muted">·</span> <em>{{ d.initiateur_type }}</em>
+      {% if d.source_url %}
+        <a class="btn-link" href="{{ d.source_url }}" target="_blank" rel="noopener">Dossier officiel ↗</a>
+      {% endif %}
+    </p>
+    <h1>{{ d.titre or '(sans titre)' }}</h1>
+    <ul class="kv">
+      <li><span>Procédure</span> <strong>{{ d.procedure_libelle or '—' }}</strong></li>
+      <li><span>Commission saisie au fond</span> <strong>{{ d.commission_fond_libelle or '—' }}</strong></li>
+      <li><span>Date de dépôt</span> <strong>{{ d.date_depot | fdate }}</strong></li>
+      <li><span>Dernier acte connu</span> <strong>{{ d.date_dernier_acte | fdate }}</strong></li>
+      <li><span>Amendements déposés</span>
+          <strong>
+            {{ d.nb_amendements_total | fint }}
+            {% if d.nb_amendements_adoptes %}<span class="muted">· {{ d.nb_amendements_adoptes }} adoptés</span>{% endif %}
+          </strong></li>
+      <li><span>Scrutins publics liés</span> <strong>{{ d.nb_scrutins | fint }}</strong>
+          <span class="muted">(les votes à main levée n'apparaissent pas)</span></li>
+    </ul>
+  </header>
+
+  {% if cluster_summary %}
+  <section class="card sharable" data-share-title="Doublons d'amendements sur ce texte">
+    <h2>
+      Doublons d'amendements détectés
+      <span class="muted small" style="font-weight: 400;">
+        {{ cluster_summary.total_clusters | fint }} clusters · {{ cluster_summary.total_amdts | fint }} amendements
+      </span>
+    </h2>
+    <p class="muted small">
+      Le moteur a détecté plusieurs groupes d'amendements quasi-identiques sur ce texte
+      (similarité Jaccard ≥ 0,80, classés en 4 types).
+    </p>
+    <div class="cluster-home-banner-types">
+      {% for t in cluster_summary.breakdown %}
+        <a href="/clusters?type={{ t.key }}#dossier-{{ d.uid }}"
+           class="cluster-home-banner-chip"
+           style="--type-color: {{ t.color }}"
+           title="{{ t.description }}">
+          <span class="cluster-home-banner-num" style="color: {{ t.color }}">{{ t.n_clusters | fint }}</span>
+          <span class="cluster-home-banner-label">{{ t.label }}</span>
+          <span class="muted small">{{ t.n_amdts | fint }} amdts</span>
+        </a>
+      {% endfor %}
+    </div>
+    <p class="muted small" style="margin-top: 10px;">
+      <a href="/clusters">→ Voir le détail des clusters de ce texte</a>
+    </p>
+  </section>
+  {% endif %}
+
+  {% if summary.by_sort or summary.by_groupe or summary.by_article %}
+  <section class="card">
+    <h2>Synthèse des amendements</h2>
+    <div class="grid grid-2">
+      <div>
+        <h3>Par sort</h3>
+        {% set chart_sort = [] %}
+        {% set palette = {'Adopté':'#15803d','Rejeté':'#b91c1c','Retiré':'#6b7280','Tombé':'#a855f7','Irrecevable':'#f59e0b','Non soutenu':'#94a3b8','En traitement':'#3b82f6','Discuté':'#22c55e'} %}
+        {% for r in summary.by_sort %}{% set _ = chart_sort.append({'label': r.sort or '(non précisé)', 'value': r.c, 'color': palette.get(r.sort, '#3b82f6')}) %}{% endfor %}
+        {{ hbar_chart(chart_sort, value_label='') }}
+        {{ chart_button(chart_sort, (d.titre | truncate(50)) ~ " — Amendements par sort", subtitle="Répartition des amendements déposés sur ce texte", unit="amendements") }}
+      </div>
+      <div>
+        <h3>Par examen</h3>
+        <ul class="kv">
+        {% for r in summary.by_examen %}
+          <li><span>{{ r.examen_type }}</span> <strong>{{ r.c | fint }}</strong></li>
+        {% endfor %}
+        </ul>
+        <h3>Top groupes auteurs</h3>
+        {% set gd = [] %}
+        {% for r in summary.by_groupe %}{% set _ = gd.append({'label': r.abrege ~ ' — ' ~ (r.libelle or ''), 'value': r.c, 'color': r.couleur or '#3b82f6'}) %}{% endfor %}
+        {{ hbar_chart(gd, value_label='') }}
+        {{ chart_button(gd, (d.titre | truncate(50)) ~ " — Amendements par groupe", subtitle="Quels groupes amendent le plus ce texte", unit="amendements") }}
+      </div>
+    </div>
+
+    <h3 style="margin-top:24px">Articles les plus amendés</h3>
+    {% set ad = [] %}
+    {% for r in summary.by_article[:12] %}{% set _ = ad.append({'label': r.article_designation, 'value': r.c, 'color': '#0ea5e9'}) %}{% endfor %}
+    {{ hbar_chart(ad, value_label='') }}
+    {{ chart_button(ad, (d.titre | truncate(50)) ~ " — Articles les plus amendés", subtitle="Distribution par article du texte", unit="amendements") }}
+
+    <p>
+      <a class="btn" href="/textes/{{ d.uid }}/amendements">Voir tous les {{ d.nb_amendements_total | fint }} amendements →</a>
+    </p>
+  </section>
+  {% endif %}
+
+  {% if scrutins %}
+  <section>
+    <h2>Scrutins publics liés ({{ scrutins | length }})</h2>
+    <p class="muted">Tous les votes ne donnent pas lieu à un scrutin public nominatif. Cette liste ne contient que les scrutins explicitement rattachés à ce dossier dans la source officielle.</p>
+    <table class="data-table">
+      <thead><tr><th>n°</th><th>Date</th><th>Objet</th><th>Sort</th><th>Pour / Contre</th><th></th></tr></thead>
+      <tbody>
+      {% for s in scrutins %}
+        <tr>
+          <td>{{ s.numero }}</td>
+          <td>{{ s.date_scrutin | fdate }}</td>
+          <td>{{ s.titre | truncate(110) }}</td>
+          <td>{{ s.sort_libelle or '—' }}</td>
+          <td>{{ s.nb_pour | fint }} / {{ s.nb_contre | fint }} <span class="muted">({{ s.nb_abstentions | fint }} abst.)</span></td>
+          <td><a href="/scrutins/{{ s.uid }}">détail →</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  <section>
+    <h2>Navette parlementaire</h2>
+    <p class="muted">Chronologie des actes officiels (dépôt, étude d'impact, examen en commission, en séance, etc.).</p>
+    <table class="data-table">
+      <thead><tr><th>Date</th><th>Acte</th><th>Organe</th><th>Document associé</th></tr></thead>
+      <tbody>
+      {% for a in actes %}
+        <tr>
+          <td>{{ a.date_acte | fdate }}</td>
+          <td>{{ a.libelle_court or a.libelle or a.code_acte }}</td>
+          <td>{{ a.organe_libelle or a.organe_uid or '—' }}</td>
+          <td>
+            {% if a.document_uid %}
+              <span class="muted">{{ a.type_libelle or '' }}</span>
+              {% if a.document_titre %}— {{ a.document_titre | truncate(80) }}{% endif %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty">Aucun acte officiel enregistré.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  {% if documents %}
+  <section>
+    <h2>Documents du dossier</h2>
+    <table class="data-table">
+      <thead><tr><th>Type</th><th>Numéro</th><th>Titre</th><th>Auteur</th><th>Date</th></tr></thead>
+      <tbody>
+      {% for doc in documents %}
+        <tr>
+          <td>{{ doc.type_libelle or doc.type_code }}</td>
+          <td>{{ doc.numero or '—' }}</td>
+          <td>{{ doc.titre_court or doc.titre_principal | truncate(110) }}</td>
+          <td>{% if doc.auteur_principal_uid %}<a href="/deputes/{{ doc.auteur_principal_uid }}">{{ doc.auteur_nom or doc.auteur_principal_uid }}</a>{% else %}—{% endif %}</td>
+          <td>{{ doc.date_depot | fdate }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% if summary.top_authors %}
+  <section>
+    <h2>Top auteurs d'amendements sur ce texte</h2>
+    <ul class="list">
+      {% for r in summary.top_authors %}
+        <li>
+          <a href="/deputes/{{ r.auteur_uid }}">{{ r.auteur_nom_complet or r.auteur_uid }}</a>
+          {% if r.groupe_abrege %}<span class="muted">· {{ r.groupe_abrege }}</span>{% endif %}
+          — {{ r.c | fint }} amendement{% if r.c > 1 %}s{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

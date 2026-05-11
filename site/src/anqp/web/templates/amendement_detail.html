@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "_macros.html" import texte_subnav %}
+{% block title %}Amendement {{ a.numero or 'sans numéro' }}{% endblock %}
+{% block content %}
+
+{{ texte_subnav('amendements') }}
+<nav class="breadcrumb">
+  {% if a.dossier_uid_full %}
+    <a href="/textes">Textes</a> /
+    <a href="/textes/{{ a.dossier_uid_full }}">{{ a.dossier_titre | truncate(60) }}</a> /
+  {% endif %}
+  <span class="muted">amendement{% if a.numero %} n° {{ a.numero }}{% endif %}</span>
+</nav>
+
+<article class="question-detail">
+  <header>
+    <p class="meta">
+      <span class="qtype qtype-amd">amendement</span>
+      {% if a.numero %}<span>n° {{ a.numero }}</span>{% endif %}
+      <span>{{ a.examen_type or '—' }}</span>
+      {% if a.sort %}<span class="pill pill-sort-{{ a.sort | lower | replace(' ','-') }}">{{ a.sort }}</span>{% endif %}
+      {% if cluster %}
+        <span class="cluster-type-badge" style="background: {{ cluster.type.color }}"
+              title="{{ cluster.type.description }} — Cluster de {{ cluster.size }} amendements quasi-identiques.">
+          Doublon · {{ cluster.type.label }}
+        </span>
+      {% endif %}
+      {% if a.source_url %}<a class="btn-link" href="{{ a.source_url }}" target="_blank" rel="noopener">Source officielle ↗</a>{% endif %}
+      {% if a.pdf_url %}<a class="btn-link" href="{{ a.pdf_url }}" target="_blank" rel="noopener">PDF ↗</a>{% endif %}
+    </p>
+    <h1>{% if a.numero %}Amendement n° {{ a.numero }}{% else %}Amendement (sans numéro){% endif %}{% if a.article_designation %} — {{ a.article_designation }}{% endif %}</h1>
+
+    <div class="grid grid-2">
+      <div>
+        <strong>Auteur :</strong>
+        {% if a.auteur_uid %}
+          <a href="/deputes/{{ a.auteur_uid }}">{{ a.auteur_nom_complet_full or a.auteur_nom_complet or a.auteur_uid }}</a>
+          {% if a.groupe_libelle %} — {{ a.groupe_libelle }}{% endif %}
+          {% if a.auteur_departement %} ({{ a.auteur_departement }}{% if a.auteur_circo %} · {{ a.auteur_circo }}ᵉ{% endif %}){% endif %}
+        {% else %}—{% endif %}
+        {% if a.cosignataires_count %}
+          <br><span class="muted">+ {{ a.cosignataires_count }} cosignataire{% if a.cosignataires_count > 1 %}s{% endif %}</span>
+        {% endif %}
+      </div>
+      <div>
+        <strong>Texte visé :</strong>
+        {% if a.dossier_uid_full %}
+          <a href="/textes/{{ a.dossier_uid_full }}">{{ a.dossier_titre | truncate(80) }}</a>
+        {% else %}{{ a.document_uid or '—' }}{% endif %}
+      </div>
+      <div><strong>Article :</strong> {{ a.article_designation or '—' }}{% if a.alinea %} <span class="muted">· alinéa {{ a.alinea }}</span>{% endif %}</div>
+      <div><strong>Date de dépôt :</strong> {{ a.date_depot | fdate }}</div>
+      <div><strong>Date de sort :</strong> {{ a.date_sort | fdate }}</div>
+      {% if a.parent_uid %}
+      <div><strong>Sous-amendement de :</strong> <a href="/amendements/{{ a.parent_uid }}">n° {{ a.parent_numero or a.parent_uid }}</a></div>
+      {% endif %}
+      {% if a.seance_discussion_ref %}
+      <div><strong>Discussion en séance :</strong> {{ a.seance_discussion_ref }}
+        <span class="muted">(un scrutin public peut ne pas avoir été tenu sur cet amendement)</span></div>
+      {% endif %}
+    </div>
+  </header>
+
+  <section class="text-block">
+    <h2>Dispositif</h2>
+    {% if a.texte %}
+      <div class="prose">{{ a.texte | safe_html }}</div>
+    {% else %}<p class="muted">Dispositif non disponible dans la source.</p>{% endif %}
+  </section>
+
+  <section class="text-block">
+    <h2>Exposé sommaire</h2>
+    {% if a.expose_sommaire %}
+      <div class="prose">{{ a.expose_sommaire | safe_html }}</div>
+    {% else %}<p class="muted">Aucun exposé sommaire publié.</p>{% endif %}
+  </section>
+
+  {% if cluster %}
+  <section class="card sharable" data-share-title="Doublon d'amendement : {{ cluster.size }} versions presque identiques">
+    <h2>
+      Doublon détecté : {{ cluster.size }} amendements quasi-identiques
+      <span class="cluster-type-badge" style="background: {{ cluster.type.color }}; vertical-align: middle;">
+        {{ cluster.type.label }}
+      </span>
+    </h2>
+    <p class="muted small">
+      {{ cluster.type.description }} ·
+      Cluster #{{ cluster.cluster_id }} (Jaccard ≥ 0,80) ·
+      <a href="/clusters?type={{ cluster.type.key }}">Voir tous les clusters de ce type →</a>
+    </p>
+    <table class="data-table compact">
+      <thead><tr><th>n°</th><th>Auteur</th><th>Groupe</th><th>Article</th><th>Sort</th></tr></thead>
+      <tbody>
+      {% for m in cluster.members %}
+        <tr {% if m.uid == a.uid %}style="background:var(--primary-soft)"{% endif %}>
+          <td><a href="/amendements/{{ m.uid }}">{{ m.numero or '—' }}</a></td>
+          <td>
+            {% if m.auteur_uid %}<a href="/deputes/{{ m.auteur_uid }}">{{ m.auteur_nom_complet or '—' }}</a>
+            {% else %}{{ m.auteur_nom_complet or '—' }}{% endif %}
+          </td>
+          <td>
+            {% if m.groupe_abrege %}
+              <span class="group-badge" style="background: {{ m.groupe_couleur or '#777' }}">{{ m.groupe_abrege }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ m.article_designation or '—' }}</td>
+          <td>{% if m.sort %}<span class="pill pill-sort-{{ m.sort | lower | replace(' ','-') }}">{{ m.sort }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}

@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chart_button %}
+{% block title %}Constructeur de top — {{ metric_spec.label | truncate(60) }}{% endblock %}
+{% block content %}
+
+<h1>Constructeur de top</h1>
+<p class="muted" style="max-width: 760px;">
+  Choisis une entité (députés, textes, scrutins…), une métrique parmi {{ all_metrics | length }} disponibles,
+  des filtres optionnels, et le générateur calcule le classement à la volée.
+  L'URL contient tous les paramètres : copie-la pour partager ton top.
+</p>
+
+<form action="/tops/custom" method="get" class="custom-top-form card">
+  <div class="custom-top-grid">
+    <label class="custom-top-field">
+      <span>Quoi classer ?</span>
+      <select name="entity" id="entity-select">
+        {% for ekey, elabel in entities %}
+          <option value="{{ ekey }}" {% if ekey == selected_entity %}selected{% endif %}>{{ elabel }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="custom-top-field">
+      <span>Métrique <span id="metric-count" class="muted small">({{ metrics_by_entity[selected_entity] | length }} disponibles)</span></span>
+      <select name="metric" id="metric-select">
+        {% set ns = namespace(last_cat='') %}
+        {% for m in metrics_by_entity[selected_entity] %}
+          {% if m.category != ns.last_cat %}
+            {% set ns.last_cat = m.category %}
+            <optgroup label="{{ m.category }}">
+          {% endif %}
+          <option value="{{ m.key }}"
+                  {% if m.key == selected_metric %}selected{% endif %}
+                  title="{{ m.description }}">
+            {{ m.label }}
+          </option>
+          {% if loop.last or metrics_by_entity[selected_entity][loop.index].category != m.category %}
+            </optgroup>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="custom-top-field">
+      <span>Sens</span>
+      <select name="direction">
+        <option value="desc" {% if result.direction == 'desc' %}selected{% endif %}>Plus haut → plus bas</option>
+        <option value="asc"  {% if result.direction == 'asc' %}selected{% endif %}>Plus bas → plus haut</option>
+      </select>
+    </label>
+
+    <label class="custom-top-field">
+      <span>Nombre</span>
+      <select name="n">
+        {% for v in [10, 25, 50, 100, 200] %}
+          <option value="{{ v }}" {% if v == result.limit %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  {% if filters_for_metric %}
+  <fieldset class="custom-top-filters">
+    <legend>Filtres optionnels pour cette métrique</legend>
+    <div class="custom-top-grid">
+      {% for f in filters_for_metric %}
+        <label class="custom-top-field">
+          <span>{{ f.label }}</span>
+          {% if f.ui == 'select_groupes' %}
+            <select name="{{ f.key }}">
+              <option value="">— tous —</option>
+              {% for g in groupes %}
+                <option value="{{ g.uid }}" {% if result.filters_applied.get(f.key) == g.uid %}selected{% endif %}>
+                  {{ g.libelle_abrege }} — {{ g.libelle | truncate(40) }}
+                </option>
+              {% endfor %}
+            </select>
+          {% elif f.ui == 'date' %}
+            <input type="date" name="{{ f.key }}" value="{{ result.filters_applied.get(f.key, '') }}">
+          {% elif f.ui in ('select_qtype','select_sort','select_examen','select_texte_type','select_statut') %}
+            <select name="{{ f.key }}">
+              <option value="">— peu importe —</option>
+              {% for v, label in f['values'] %}
+                <option value="{{ v }}" {% if result.filters_applied.get(f.key) == v %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          {% else %}
+            {% set raw_val = result.filters_applied.get(f.key, '') %}
+            <input type="text" name="{{ f.key }}" value="{{ raw_val | replace('%','') }}" placeholder="…">
+          {% endif %}
+        </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% endif %}
+
+  <div class="custom-top-actions">
+    <button type="submit">Générer le top</button>
+    <a class="btn-link" href="/tops/custom?entity={{ selected_entity }}">Réinitialiser les filtres</a>
+  </div>
+</form>
+
+{# ----------------- Résultats ----------------- #}
+<section class="card sharable" data-share-title="{{ metric_spec.label }} — Top {{ result.limit }}">
+  <div class="custom-top-result-head">
+    <h2>
+      {% if result.direction == 'desc' %}Top{% else %}Flop{% endif %} {{ result.limit }} —
+      {{ metric_spec.label }}
+    </h2>
+    <p class="muted small">{{ metric_spec.description }}</p>
+    {% if result.filters_applied %}
+      <p class="muted small">
+        <strong>Filtres :</strong>
+        {% for k, v in result.filters_applied.items() %}
+          <span class="filter-chip">{{ filter_types[k].label }} : {{ v | replace('%','') }}</span>
+        {% endfor %}
+      </p>
+    {% endif %}
+    <p class="muted small share-line">
+      <strong>Lien partageable :</strong>
+      <input type="text" readonly value="https://577deputes.fr{{ share_url }}"
+             id="share-url-input"
+             class="share-input"
+             title="Cliquer pour copier">
+    </p>
+  </div>
+
+  {% if not result.rows %}
+    <p class="empty">Aucun résultat pour cette combinaison de filtres. Essaie d'élargir.</p>
+  {% else %}
+    {# 1) Liste verticale style ranking #}
+    <ol class="rank-list custom-top-list">
+      {% for r in result.rows %}
+        {% set rank_color = r.color or '#4f46e5' %}
+        <li class="custom-top-row">
+          <span class="rank-chip" style="background: {{ rank_color }}; box-shadow: 0 2px 4px {{ rank_color }}33;">
+            {{ loop.index }}
+          </span>
+          {% if r.image %}
+            <span class="custom-top-photo" style="background-image:url('{{ r.image }}')"></span>
+          {% endif %}
+          <span class="custom-top-body">
+            {% if r.link %}
+              <a href="{{ r.link }}"><strong>{{ r.title | truncate(80) }}</strong></a>
+            {% else %}
+              <strong>{{ r.title | truncate(80) }}</strong>
+            {% endif %}
+            {% if r.subtitle and r.subtitle != '—' %}
+              <span class="muted small"> · {{ r.subtitle | truncate(60) }}</span>
+            {% endif %}
+          </span>
+          <span class="custom-top-value">
+            {% if r.value is number %}
+              {% if metric_spec.is_percentage %}
+                {{ r.value | round(metric_spec.digits) }}<span class="muted small"> %</span>
+              {% elif metric_spec.digits == 0 %}
+                {{ r.value | int | fint }}<span class="muted small"> {{ metric_spec.value_label }}</span>
+              {% else %}
+                {{ r.value | round(metric_spec.digits) }}<span class="muted small"> {{ metric_spec.value_label }}</span>
+              {% endif %}
+            {% else %}
+              {{ r.value }}
+            {% endif %}
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
+
+    {# 2) Bouton chart modal — réutilise le composant exportable en PNG #}
+    {% set chart_data = [] %}
+    {% for r in result.rows %}
+      {% set _ = chart_data.append({
+        'label': (r.title | truncate(50)) ~ (' · ' ~ r.subtitle if r.subtitle and r.subtitle != '—' else ''),
+        'value': r.value,
+        'color': r.color or '#4f46e5'
+      }) %}
+    {% endfor %}
+    {{ chart_button(
+        chart_data,
+        metric_spec.label ~ ' — Top ' ~ result.limit,
+        subtitle="577députés.fr — généré le " ~ (now | default('')),
+        unit=metric_spec.value_label
+    ) }}
+  {% endif %}
+</section>
+
+{# ----------------- Découverte ----------------- #}
+{% if suggestions %}
+<section class="card">
+  <h3>À explorer aussi</h3>
+  <p class="muted small">Quelques tops surprenants à un clic.</p>
+  <ul class="discovery-list">
+    {% for s in suggestions %}
+      {% set sm = all_metrics[s.metric_key] %}
+      <li>
+        <a href="/tops/custom?entity={{ sm.entity }}&metric={{ s.metric_key }}&direction={{ s.direction }}&n={{ s.limit }}">
+          → {{ s.title }}
+        </a>
+        <span class="muted small"> ({{ s.limit }} entrées)</span>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{# Catalogue complet pour le rebuild client-side de la dropdown métrique #}
+<script id="metrics-catalog" type="application/json">
+{
+  {% for ekey, _ in entities %}
+    "{{ ekey }}": [
+      {% for m in metrics_by_entity[ekey] %}
+        {"key": {{ m.key | tojson }},
+         "label": {{ m.label | tojson }},
+         "category": {{ m.category | tojson }},
+         "description": {{ m.description | tojson }}}{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]{% if not loop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
+
+<script defer src="/static/tops-custom.js"></script>
+
+{% endblock %}

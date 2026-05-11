@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge %}
+{% block title %}Recherche{% if q %} — {{ q }}{% endif %}{% endblock %}
+{% block content %}
+
+<h1>Recherche transverse</h1>
+<p class="muted">Cherche le même mot-clé à travers les questions, les amendements, les scrutins, les dossiers législatifs et les députés.</p>
+
+<form action="/recherche" method="get" class="search-form" style="background:white;padding:0;margin:16px 0">
+  <input type="search" name="q" value="{{ q }}" placeholder="Sujet, mot-clé, nom (ex: retraite, antisémitisme, Yadan…)" autofocus>
+  <button type="submit">Chercher</button>
+</form>
+
+{% if q and not res %}
+  <p class="muted">Tape au moins 2 caractères.</p>
+{% elif res %}
+  {% set total = (res.questions|length) + (res.amendements|length) + (res.scrutins|length) + (res.dossiers|length) + (res.deputies|length) %}
+  <p class="muted">{{ total }} résultats répartis ci-dessous (max {{ res.questions[:1] | length and 8 or 8 }} par catégorie).</p>
+
+  {% if res.deputies %}
+  <section>
+    <h2>Députés ({{ res.deputies | length }})</h2>
+    <div class="deputy-grid">
+      {% for d in res.deputies %}
+      <a class="deputy-card" href="/deputes/{{ d.uid }}">
+        <div class="deputy-photo" style="background-image:url('/photo/{{ d.uid }}')"></div>
+        <div class="deputy-info">
+          <h3>{{ d.nom_complet }}</h3>
+          <div class="meta">
+            {{ group_badge(d.groupe_abrege, '', d.groupe_couleur) }}
+            {% if d.departement %}<span>{{ d.departement }}</span>{% endif %}
+            {% if not d.is_active %}<span class="muted">(ex)</span>{% endif %}
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if res.dossiers %}
+  <section>
+    <h2>Textes ({{ res.dossiers | length }})</h2>
+    <ul class="list">
+    {% for t in res.dossiers %}
+      <li>
+        <a href="/textes/{{ t.uid }}"><strong>{{ t.titre | truncate(120) }}</strong></a>
+        <div class="meta">
+          {{ t.initiateur or '—' }} ·
+          <span class="pill pill-{{ t.statut }}">{{ t.statut | statut_dossier }}</span>
+          {% if t.statut | is_terminal and t.date_dernier_acte %}<span class="muted"> le {{ t.date_dernier_acte | fdate }}</span>{% endif %}
+          · {{ t.nb_amendements_total | fint }} amdts
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if res.questions %}
+  <section>
+    <h2>Questions ({{ res.questions | length }})</h2>
+    <ul class="list">
+    {% for qq in res.questions %}
+      <li>
+        <a href="/questions/{{ qq.uid }}">
+          <span class="qtype qtype-{{ qq.type | lower }}">{{ qq.type | qtype_short }}</span>
+          {{ qq.titre | truncate(100) }}
+        </a>
+        <div class="meta">
+          {{ qq.auteur_nom_complet or '—' }}
+          {% if qq.auteur_groupe_abrege %}· {{ qq.auteur_groupe_abrege }}{% endif %}
+          · {{ qq.ministere_interroge_court or '—' }}
+          · <span class="pill pill-{{ qq.statut }}">{{ qq.statut | statut }}</span>
+          · {{ qq.date_question | fdate }}
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+    <p><a href="/questions?q={{ q | urlencode }}">Voir toutes les questions correspondantes →</a></p>
+  </section>
+  {% endif %}
+
+  {% if res.amendements %}
+  <section>
+    <h2>Amendements ({{ res.amendements | length }})</h2>
+    <ul class="list">
+    {% for a in res.amendements %}
+      <li>
+        <a href="/amendements/{{ a.uid }}">amdt {% if a.numero %}n°{{ a.numero }}{% else %}sans n°{% endif %} — {{ a.article_designation or '' }}</a>
+        <div class="meta">
+          {{ a.auteur_nom_complet or '—' }}
+          {% if a.groupe_abrege %}· {{ a.groupe_abrege }}{% endif %}
+          {% if a.sort %}· <span class="pill pill-sort-{{ a.sort | lower | replace(' ','-') }}">{{ a.sort }}</span>{% endif %}
+          · {{ a.examen_type or '—' }} · {{ a.date_depot | fdate }}
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+    <p><a href="/amendements?q={{ q | urlencode }}">Voir tous les amendements correspondants →</a></p>
+  </section>
+  {% endif %}
+
+  {% if res.scrutins %}
+  <section>
+    <h2>Scrutins publics ({{ res.scrutins | length }})</h2>
+    <ul class="list">
+    {% for s in res.scrutins %}
+      <li>
+        <a href="/scrutins/{{ s.uid }}"><strong>n°{{ s.numero }}</strong> — {{ s.titre | truncate(110) }}</a>
+        <div class="meta">
+          {{ s.date_scrutin | fdate }} · {{ s.sort_libelle or '—' }}
+          · {{ s.nb_pour }} pour / {{ s.nb_contre }} contre / {{ s.nb_abstentions }} abst.
+        </div>
+      </li>
+    {% endfor %}
+    </ul>
+    <p><a href="/scrutins?q={{ q | urlencode }}">Voir tous les scrutins correspondants →</a></p>
+  </section>
+  {% endif %}
+
+  {% if total == 0 %}
+    <p class="empty">Aucun résultat pour « {{ q }} ».</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

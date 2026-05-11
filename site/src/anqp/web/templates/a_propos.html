@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% block title %}À propos & méthodologie{% endblock %}
+{% block content %}
+
+<h1>À propos & méthodologie</h1>
+
+<p class="muted" style="max-width: 760px;">
+  <strong>577députés</strong> est un explorateur indépendant de l'activité parlementaire
+  de la 17ᵉ législature de l'Assemblée nationale (depuis juillet 2024).
+  Tout est local : pas de service tiers, pas de tracker, pas d'analytics.
+  Données ouvertes officielles uniquement, ré-utilisées sous Licence Ouverte (Etalab).
+</p>
+<p class="muted small" style="max-width: 760px;">
+  Les commandes en ligne ci-dessous (<code>anqp …</code>) sont celles du paquet Python
+  qui propulse le site, à l'usage des personnes qui auto-hébergent l'instance.
+</p>
+
+<section class="card">
+  <h2>Indépendance & neutralité</h2>
+  <ul>
+    <li>Aucune affiliation politique, partisane, syndicale ou institutionnelle.</li>
+    <li>Aucune source de financement publique ou privée. Projet entièrement bénévole.</li>
+    <li>Aucune donnée n'est inventée, devinée ou enrichie par l'éditeur :
+      les chiffres affichés viennent intégralement des dumps officiels d'open data
+      de l'Assemblée nationale.</li>
+    <li>Le code source est public et auditable. La méthodologie de chaque indicateur
+      est documentée ci-dessous.</li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>Sources de données</h2>
+  <p>
+    Toutes les données proviennent du portail
+    <a href="https://data.assemblee-nationale.fr" target="_blank" rel="noopener">data.assemblee-nationale.fr</a>,
+    publié par les services de l'Assemblée nationale. Licence
+    <a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/" target="_blank" rel="noopener">Licence Ouverte v2.0 — Etalab</a>.
+  </p>
+  <table class="data-table">
+    <thead>
+      <tr><th>Domaine</th><th>Source</th><th>Format</th><th>Volume actuel</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Députés en exercice</td><td>AMO10 (acteurs / mandats / organes — actifs)</td><td>JSON ZIP, ~5 MB</td><td>577 députés</td></tr>
+      <tr><td>Députés historiques</td><td>AMO50 (acteurs / mandats / organes — historiques)</td><td>JSON ZIP, ~14 MB</td><td>+48 ex-députés indexés</td></tr>
+      <tr><td>Questions écrites</td><td>Questions_ecrites.json.zip</td><td>JSON ZIP, ~38 MB</td><td>{{ overview.counts.questions | fint }} questions toutes catégories confondues</td></tr>
+      <tr><td>Questions orales</td><td>Questions_orales_sans_debat.json.zip</td><td>JSON ZIP, ~3 MB</td><td>—</td></tr>
+      <tr><td>Questions au Gouvernement</td><td>Questions_gouvernement.json.zip</td><td>JSON ZIP, ~4 MB</td><td>—</td></tr>
+      <tr><td>Dossiers législatifs</td><td>Dossiers_Legislatifs.json.zip</td><td>JSON ZIP, ~9 MB</td><td>{{ legislative.counts.dossiers | fint }} dossiers</td></tr>
+      <tr><td>Amendements</td><td>Amendements.json.zip</td><td>JSON ZIP, ~251 MB</td><td>{{ legislative.counts.amendements | fint }} amendements</td></tr>
+      <tr><td>Scrutins publics nominatifs</td><td>Scrutins.json.zip</td><td>JSON ZIP, ~21 MB</td><td>{{ legislative.counts.scrutins | fint }} scrutins · {{ legislative.counts.votes | fint }} votes individuels</td></tr>
+      <tr><td>Réunions / agenda</td><td>Agenda.json.zip</td><td>JSON ZIP, ~7 MB</td><td>6 669 réunions</td></tr>
+      <tr><td>Comptes rendus de séance</td><td>syseron.xml.zip</td><td>XML ZIP, ~45 MB</td><td>507 comptes rendus, ~3 700 interventions extraites</td></tr>
+      <tr><td>Population par circonscription</td><td>INSEE — Populations légales 2021 (republiées 25/06/2024)</td><td>XLSX, ~32 KB</td><td>566 circos métropole + DOM, mise à jour annuelle</td></tr>
+      <tr><td>Inscrits / votants par circonscription</td><td>Ministère de l'Intérieur — Législatives 2024 1er tour (résultats définitifs)</td><td>CSV, ~330 KB</td><td>577 circos, mise à jour à chaque scrutin législatif</td></tr>
+    </tbody>
+  </table>
+  <p class="muted small" style="margin-top: 8px;">
+    Tous les jeux de données sont distribués sous
+    <a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/" target="_blank" rel="noopener">Licence Ouverte 2.0 (Etalab)</a>.
+  </p>
+</section>
+
+<section class="card">
+  <h2>Fréquence de mise à jour</h2>
+  <ul>
+    <li><strong>Côté Assemblée nationale</strong> : les dumps sont régénérés
+      <strong>chaque nuit, vers 03 h UTC</strong>. Latence amont &lt; 24 h.</li>
+    <li><strong>Côté 577députés</strong> :
+      {% if refresh_state.enabled %}
+        un thread de fond rafraîchit la base
+        <strong>toutes les 24 heures</strong> tant que le serveur tourne (cache HTTP
+        ETag/Last-Modified : 0 octet téléchargé si la source AN n'a pas bougé).
+        Prochain rafraîchissement programmé :
+        {% if refresh_state.next_run_in_s == 0 %}
+          <strong>imminent</strong> ;
+        {% elif refresh_state.next_run_in_s is not none %}
+          dans <strong id="next-refresh-countdown"
+                       data-seconds="{{ refresh_state.next_run_in_s }}">{{ (refresh_state.next_run_in_s // 3600) }}h{{ '%02d' % ((refresh_state.next_run_in_s % 3600) // 60) }}</strong> ;
+        {% else %}—{% endif %}
+        désactivable via <code>ANQP_AUTO_REFRESH=0</code>.
+      {% else %}
+        rafraîchissement automatique <strong>désactivé</strong> dans cette instance.
+        Mises à jour manuelles via <code>anqp update</code>.
+      {% endif %}
+    </li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>Comment chaque indicateur est calculé</h2>
+
+  <h3>Statut d'un texte législatif</h3>
+  <p>
+    Déduit du <em>type d'acte</em> de la navette parlementaire (champ
+    <code>type_xsi</code> du dump dossiers). Règles, par ordre de priorité :
+  </p>
+  <ul>
+    <li><code>Promulgation_Type</code> présent → <strong>promulguée</strong></li>
+    <li><code>RetraitInitiative_Type</code> ou code <code>*-RTRINI</code> → <strong>retiré</strong></li>
+    <li>Code <code>*CADUC*</code> → <strong>caduc</strong></li>
+    <li>Sinon → <strong>en cours</strong> (par défaut). La distinction adopté/rejeté
+      n'est pas extractible de manière fiable depuis le dump (codée comme
+      <code>Decision_Type</code> générique sans valeur explicite) ; non inféré.</li>
+  </ul>
+
+  <h3>Statut d'une question parlementaire</h3>
+  <p>
+    <strong>avec_reponse</strong> si un texte de réponse ministérielle est publié,
+    <strong>cloturee</strong> si l'état de clôture est explicite,
+    <strong>sans_reponse</strong> sinon.
+    Le champ <code>delai_reponse_jours</code> est la différence en jours calendaires
+    entre la date de publication de la question et celle de la réponse.
+  </p>
+
+  <h3>Sort d'un amendement</h3>
+  <p>
+    Lu dans <code>cycleDeVie.sort</code> en priorité (texte clair : Adopté, Rejeté,
+    Retiré, Tombé, Non soutenu, En traitement, Discuté, Effacé). Si le champ est
+    nul (cas <code>xsi:nil</code>), le sort est déduit de
+    <code>etatDesTraitements.etat.libelle</code> (ex : « Irrecevable 40 » →
+    <strong>Irrecevable</strong>). Aucune autre inférence n'est faite.
+  </p>
+
+  <h3>Discipline de groupe (votes)</h3>
+  <p>
+    Pour chaque scrutin et chaque groupe, on identifie la
+    <em>position majoritaire</em> du groupe (champ <code>positionMajoritaire</code>
+    de la donnée source AN). La discipline d'un député est définie comme :
+  </p>
+  <pre><code>discipline(d) = (votes alignés sur sa majorité de groupe)
+              ÷ (votes exprimés du député)
+              × 100</code></pre>
+  <p>
+    Seuls les votes <strong>pour, contre, abstention</strong> (votes exprimés) entrent
+    dans le calcul. Les non-votants sont exclus du dénominateur.
+    <strong>Important</strong> : ces calculs ne portent que sur les
+    <strong>scrutins publics nominatifs</strong> (~6 500). Les votes à main levée
+    (largement majoritaires en hémicycle) ne laissent aucune trace exploitable et
+    n'apparaissent jamais. La discipline affichée est donc celle observée sur un
+    sous-ensemble représentatif mais pas exhaustif.
+  </p>
+
+  <h3 id="analyses">Outils de détection (page Analyses)</h3>
+  <p>
+    La page <a href="/analyses">/analyses</a> propose trois outils
+    quantifiables pour révéler des comportements peu visibles autrement.
+  </p>
+  <ol>
+    <li><strong>Réponses ministérielles dupliquées</strong> : pour
+      chaque réponse ministérielle publiée (champ
+      <code>texte_reponse</code>), on calcule un préfixe normalisé
+      (HTML retiré, blancs collapsés, 250 premiers caractères, en
+      minuscules, formules de politesse initiales retirées). Si ce
+      préfixe apparaît sur ≥ 3 questions distinctes, on considère
+      qu'il s'agit d'un <em>template</em>. Le pourcentage affiché est
+      <code>total_responses_in_templates / total_responses_with_answer</code>.
+      Limite : un template peut être légitime (rappel de cadre légal
+      partagé) ; cette détection signale un fait quantifiable, pas un
+      jugement.</li>
+    <li><strong>Absentéisme stratégique</strong> : pour chaque scrutin
+      avec ≥ 200 votants exprimés, on classe en <em>clivant</em>
+      (écart |pour−contre| ≤ 10 % du total) ou <em>consensuel</em>
+      (écart > 50 %). Pour chaque député, on calcule son taux de
+      présence dans chaque catégorie. L'écart
+      <code>(% présence consensuels − % présence clivants)</code>
+      est affiché ; un écart fortement positif suggère une stratégie
+      d'évitement des votes serrés. Filtre : ≥ 30 scrutins clivants
+      participés. Un écart peut s'expliquer par des raisons légitimes
+      (mandat local, déplacement officiel, santé).</li>
+    <li><strong>Amendements fantômes</strong> : pour chaque député
+      ayant déposé ≥ 50 amendements, on calcule le ratio
+      <code>(amendements défendus) / (amendements déposés)</code>.
+      Un amendement est dit « défendu » si son sort est
+      <code>Adopté</code>, <code>Rejeté</code>, <code>Retiré</code>
+      ou <code>Discuté</code>. Il est dit « fantôme » si son sort
+      est <code>Non soutenu</code> ou absent. Un haut taux de fantômes
+      peut indiquer du dépôt pour la communication, de l'obstruction
+      collective, ou une délégation politique (l'amendement est porté
+      au nom d'un groupe et défendu par un autre député). Indicateur
+      brut, à croiser avec d'autres signaux pour conclure.</li>
+  </ol>
+
+  <h3 id="coalitions">Coalitions & alliances de vote</h3>
+  <p>
+    La page <a href="/coalitions">/coalitions</a> agrège quatre angles
+    d'analyse, tous calculés à partir de la table <code>scrutin_groupes</code>
+    qui stocke pour chaque (scrutin × groupe) la position majoritaire
+    officielle publiée par l'Assemblée nationale.
+  </p>
+  <ol>
+    <li><strong>Onglet Blocs</strong> : tableau des groupes parlementaires
+      (GP) constitués sur la législature en cours, avec effectif (depuis
+      la table <code>deputies</code> filtrée sur <code>is_active = 1</code>),
+      nombre de scrutins votés, et discipline moyenne.</li>
+    <li><strong>Onglet Matrice</strong> : pour chaque paire de groupes
+      (G₁, G₂), score de cohésion =
+      <code>(nb scrutins où positions majoritaires identiques) ÷ (nb scrutins communs)</code>.
+      Ne sont comptés que les scrutins où les <em>deux</em> groupes ont une
+      position majoritaire dans <code>{pour, contre, abstention}</code>.
+      Un score de 100 % = vote toujours pareil ; 0 % = vote toujours opposé.
+      La diagonale est à 100 % par définition.</li>
+    <li><strong>Onglet Sujets</strong> : sélection automatisée des
+      Top 10 dossiers législatifs respectant
+      <strong>trois critères stricts</strong> et reproductibles :
+      (a) au moins 1 scrutin public nominatif rattaché,
+      (b) au moins 50 amendements déposés (preuve de débat actif),
+      (c) tri par nombre d'amendements décroissant. Aucun choix éditorial.
+      Pour chaque dossier, on récupère la position dominante de chaque
+      groupe sur l'ensemble des scrutins liés (la position la plus
+      fréquente parmi pour/contre/abstention).</li>
+    <li><strong>Onglet Cartographie</strong> : projection 2D des groupes
+      où l'axe X = cohésion avec LFI (gauche radicale), l'axe Y =
+      cohésion avec EPR (macroniste). Ce n'est <em>pas</em> une analyse
+      en composantes principales : c'est une projection 2D simple et
+      interprétable, dérivée directement de la matrice de cohésion. Les
+      liens entre groupes ne sont tracés que pour des scores ≥ 60 %.</li>
+  </ol>
+  <p>
+    Limitation : seuls les scrutins publics nominatifs sont pris en
+    compte (~6 500 sur la 17ᵉ législature). Les votes à main levée et
+    les positions des groupes en commission ne laissent aucune trace
+    exploitable et n'apparaissent pas dans ces analyses.
+  </p>
+
+  <h3>Détection d'amendements quasi-identiques</h3>
+  <p>
+    Algorithme MinHash + LSH :
+  </p>
+  <ol>
+    <li>Le texte du dispositif est nettoyé (HTML retiré, accents pliés, ponctuation supprimée).</li>
+    <li>Découpé en <em>shingles</em> de 5 mots consécutifs.</li>
+    <li>64 signatures MinHash sont calculées (BLAKE2b 64-bit avec graines déterministes).</li>
+    <li>16 bandes de 4 signatures bucketent les amendements ; les paires en collision
+      sont vérifiées par le coefficient de Jaccard exact sur les shingles.</li>
+    <li>Seuil retenu : <strong>Jaccard ≥ 0,80</strong>. Deux amendements au-dessus de
+      ce seuil sont considérés comme « quasi-identiques » et regroupés via union-find.</li>
+  </ol>
+  <p>
+    Les amendements de moins de 8 shingles (texte court) sont exclus du calcul.
+    Re-calculable via <code>anqp cluster-amendements</code>. Voir <a href="/clusters">/clusters</a>.
+  </p>
+
+  <h4>Typologie automatique des clusters</h4>
+  <p>
+    Chaque cluster est ensuite classé dans l'une des 4 catégories suivantes,
+    selon sa taille (nombre d'amendements) et le nombre de groupes parlementaires
+    qui le portent. La priorité va de haut en bas : la taille (obstruction) gagne
+    toujours sur la composition.
+  </p>
+  <ol>
+    <li><strong>Obstruction</strong> — cluster de <strong>≥ 15 amendements</strong>
+      quasi-identiques. Souvent une tactique de blocage du débat / saturation
+      du temps de séance. Peu importe la composition partisane.</li>
+    <li><strong>Convergence inter-groupes</strong> — au moins <strong>2 groupes
+      parlementaires différents</strong> portent la même rédaction (et le cluster
+      n'est pas en obstruction). Signale un consensus technique ou une alliance
+      opportuniste, parfois transpartisane.</li>
+    <li><strong>Amplification intra-groupe</strong> — <strong>1 seul groupe</strong>
+      dépose la même rédaction <strong>3 fois ou plus</strong> via des députés
+      différents. Stratégie collective de visibilité d'un groupe.</li>
+    <li><strong>Réutilisation simple</strong> — doublon ou triplet trivial qui
+      ne rentre dans aucune des catégories précédentes (2-3 amendements, peu
+      importe le groupe). Faible signal politique.</li>
+  </ol>
+  <p>
+    La classification est déterministe (calculée à partir des seuls champs <code>size</code>
+    et <code>n_groups</code> du cluster) et exposée en tant que filtre sur <a href="/clusters">/clusters</a>
+    + tableau de bord agrégé sur <a href="/stats/clusters">/stats/clusters</a>.
+  </p>
+
+  <h3>Score d'activité (cumul)</h3>
+  <p>
+    Sur la page <a href="/tops">/tops</a> et certaines fiches, le score d'activité
+    d'un député est la simple somme : <em>questions posées + amendements déposés
+    + votes exprimés</em>. Aucune normalisation, aucune pondération : trois
+    actions parlementaires différentes comptent à équivalent. Cette simplicité
+    est volontaire pour rester transparent ; un « score parlementaire »
+    pondéré serait subjectif.
+  </p>
+
+  <h3>Population &amp; électeurs par circonscription</h3>
+  <p>
+    Sur la <a href="/carte">carte</a>, chaque circonscription affiche au survol :
+    le <strong>nombre d'habitants</strong> (résidents tous âges confondus) et
+    le <strong>nombre d'inscrits sur les listes électorales</strong>. La légende
+    additionne ces deux chiffres par groupe parlementaire.
+  </p>
+  <ul>
+    <li><strong>Population</strong> : INSEE, populations légales municipales 2021
+      (recensement) republiées le 25 juin 2024. Reflète les résidents
+      <em>au 1ᵉʳ janvier 2021</em> ; mise à jour annuelle par l'INSEE.
+      Les 11 circonscriptions des Français de l'étranger n'ont pas de population
+      résidente : champ laissé vide.</li>
+    <li><strong>Inscrits / votants</strong> : Ministère de l'Intérieur,
+      résultats définitifs du 1er tour des législatives des 30 juin et
+      7 juillet 2024. Stable jusqu'à la prochaine élection législative
+      (sauf élections partielles éventuelles, qui mettent à jour
+      ponctuellement une circonscription).</li>
+    <li>Habitants ≠ inscrits : tout résident n'est pas électeur (mineurs,
+      étrangers non communautaires pour les législatives, non-inscrits…).
+      La différence entre les deux chiffres est attendue et significative.</li>
+  </ul>
+
+  <h3>Recherche full-text</h3>
+  <p>
+    SQLite FTS5 avec le tokenizer <code>unicode61 remove_diacritics 2</code>
+    (insensible à la casse et aux accents). Sur les questions et les amendements.
+    La syntaxe accepte : phrases entre guillemets, opérateurs <code>AND/OR/NOT/NEAR</code>,
+    recherche par champ (<code>titre:retraite</code>), négation (<code>-mot</code>).
+  </p>
+</section>
+
+<section class="card">
+  <h2>Limitations connues</h2>
+  <ul>
+    <li><strong>Votes à main levée non tracés</strong> : la majorité des votes en
+      hémicycle se font à main levée et ne laissent aucune trace publique
+      exploitable. Toute statistique liée au comportement de vote ne porte donc
+      que sur les <strong>scrutins publics nominatifs</strong>. Ce n'est pas une
+      lacune du site mais un fait sur les données disponibles.</li>
+    <li><strong>Lien dossier ↔ scrutin</strong> partiel : ~80 % des scrutins n'ont
+      pas de référence explicite vers le dossier législatif qu'ils tranchent. La
+      page d'un texte ne montre que les scrutins explicitement liés à la source.</li>
+    <li><strong>Cosignataires d'amendements</strong> : seul le nombre est conservé
+      pour des raisons de volume (108 000 amendements × N cosignataires =
+      plusieurs millions de paires). La liste détaillée est récupérable via le
+      lien PDF de l'amendement.</li>
+    <li><strong>Reconstruction de séance QAG</strong> : le rattachement entre
+      une question au Gouvernement et la séance se fait par date — cela peut
+      laisser des ambiguïtés rares (deux séances le même jour).</li>
+    <li><strong>Statut adopté / rejeté</strong> non extractible automatiquement
+      pour les textes : la donnée AN code la décision via un type générique
+      sans valeur d'issue ; aucune inférence n'est faite côté site.</li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>API publique</h2>
+  <p>
+    Tous les listings et fiches sont exposés en JSON sur <code>/api/*</code>.
+    La spécification OpenAPI est publiée et naviguable :
+  </p>
+  <ul>
+    <li><a href="/api/docs"><strong>Swagger UI</strong></a> — interface interactive,
+      essais de requêtes en direct.</li>
+    <li><a href="/api/redoc">ReDoc</a> — version lecture (mieux pour la documentation imprimée).</li>
+    <li><a href="/api/openapi.json">openapi.json</a> — spécification brute (utilisable
+      avec n'importe quel client OpenAPI : Postman, openapi-generator, etc.).</li>
+  </ul>
+  <p>
+    L'API est en lecture seule, sans authentification ni quota côté local
+    (mais bien sûr local-first : pas de service hébergé public).
+  </p>
+</section>
+
+<section class="card">
+  <h2>Contact & disclosure</h2>
+  <ul>
+    <li><strong>Stack technique</strong> : Python (FastAPI + SQLite + Jinja2),
+      Linux (Ubuntu 24.04), nginx, HTTPS via Let's Encrypt. Le code source
+      n'est pour le moment pas publié — sa publication ouverte est en cours
+      d'évaluation.</li>
+    <li><strong>Signaler une erreur de calcul, une donnée incorrecte ou
+      suggérer une amélioration</strong> : voir le fichier
+      <a href="/.well-known/security.txt">/.well-known/security.txt</a>
+      pour le canal de contact (procédure de disclosure responsable
+      conforme au RFC 9116).</li>
+    <li><strong>Pour citer le site</strong> : « 577députés — exploration de
+      l'activité parlementaire de la 17ᵉ législature, à partir des données
+      ouvertes de l'Assemblée nationale (Licence Ouverte / Etalab) ».</li>
+  </ul>
+</section>
+
+<script defer src="/static/next-refresh-countdown.js"></script>
+
+{% endblock %}

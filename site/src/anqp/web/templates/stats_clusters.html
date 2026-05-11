@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_macros.html" import donut_chart, chart_button, group_badge %}
+{% block title %}Stats — Doublons d'amendements{% endblock %}
+{% block content %}
+
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Doublons d'amendements</nav>
+<h1>Tableau de bord des doublons d'amendements</h1>
+<p class="muted" style="max-width: 760px;">
+  Détection automatique des amendements quasi-identiques par MinHash (Jaccard ≥ 0,80),
+  classés en 4 catégories selon leur composition.
+  Méthode complète documentée en <a href="/a-propos">/a-propos</a>.
+</p>
+
+<section class="card sharable" data-share-title="Doublons d'amendements — 17ᵉ législature">
+  <h2>Vue d'ensemble</h2>
+  <div class="cluster-overview-grid">
+    <div class="cluster-overview-stat">
+      <span class="cluster-overview-num">{{ overview.total_clusters | fint }}</span>
+      <span class="cluster-overview-label">clusters détectés</span>
+    </div>
+    <div class="cluster-overview-stat">
+      <span class="cluster-overview-num">{{ overview.total_amdts_clusterises | fint }}</span>
+      <span class="cluster-overview-label">amendements en doublons</span>
+    </div>
+    <div class="cluster-overview-stat">
+      <span class="cluster-overview-num">{{ overview.pct_clusterises | round(1) }}%</span>
+      <span class="cluster-overview-label">du total ({{ overview.total_amdts_global | fint }} amdts)</span>
+    </div>
+  </div>
+</section>
+
+<section class="card sharable" data-share-title="Doublons par type — 17ᵉ législature">
+  <h2>Répartition par type de cluster</h2>
+  <p class="muted small">
+    Combien de clusters de chaque type, et combien d'amendements ils représentent.
+  </p>
+  {% set chart = [] %}
+  {% for t in overview.by_type %}
+    {% set _ = chart.append({'label': t.label, 'value': t.n_clusters, 'color': t.color}) %}
+  {% endfor %}
+  {{ donut_chart(chart, value_label='clusters') }}
+  {{ chart_button(chart, "Clusters d'amendements par type", subtitle="17ᵉ législature — Distribution typologique", unit="clusters") }}
+
+  <ul class="cluster-type-legend" style="margin-top: 16px;">
+    {% for t in overview.by_type %}
+      <li>
+        <span class="cluster-type-dot" style="background: {{ t.color }}"></span>
+        <div>
+          <strong>{{ t.label }}</strong> —
+          <span class="muted small">{{ t.n_clusters | fint }} clusters · {{ t.n_amdts | fint }} amendements</span>
+          <div class="muted small">{{ t.description }}</div>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="card sharable" data-share-title="Top 15 textes les plus dupliqués — 17ᵉ législature">
+  <h2>Top 15 textes — par volume d'amendements en doublons</h2>
+  <p class="muted small">Chaque cellule colorée indique le nombre de clusters de ce type pour le texte.</p>
+  <div style="overflow-x: auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Texte</th>
+          <th class="cluster-cell-num">Clusters</th>
+          <th class="cluster-cell-num">Amdts</th>
+          <th class="cluster-cell-num" style="color: #dc2626;">Obstruction</th>
+          <th class="cluster-cell-num" style="color: #0891b2;">Convergence</th>
+          <th class="cluster-cell-num" style="color: #7c3aed;">Amplification</th>
+          <th class="cluster-cell-num" style="color: #6b7280;">Réutilisation</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for t in top_textes %}
+        <tr>
+          <td>
+            <a href="/textes/{{ t.uid }}">{{ t.titre | truncate(80) }}</a>
+            {% if t.statut %}<span class="pill pill-{{ t.statut }} small">{{ t.statut | statut_dossier }}</span>{% endif %}
+          </td>
+          <td class="cluster-cell-num"><strong>{{ t.n_clusters | fint }}</strong></td>
+          <td class="cluster-cell-num">{{ t.n_amdts | fint }}</td>
+          <td class="cluster-cell-num">{% if t.n_obstruction %}<strong>{{ t.n_obstruction | fint }}</strong>{% else %}—{% endif %}</td>
+          <td class="cluster-cell-num">{% if t.n_convergence %}<strong>{{ t.n_convergence | fint }}</strong>{% else %}—{% endif %}</td>
+          <td class="cluster-cell-num">{% if t.n_amplification %}<strong>{{ t.n_amplification | fint }}</strong>{% else %}—{% endif %}</td>
+          <td class="cluster-cell-num">{% if t.n_reutilisation %}{{ t.n_reutilisation | fint }}{% else %}—{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% set chart_textes = [] %}
+  {% for t in top_textes %}
+    {% set _ = chart_textes.append({'label': t.titre | truncate(60), 'value': t.n_amdts, 'color': '#7c3aed'}) %}
+  {% endfor %}
+  {{ chart_button(chart_textes, "Top 15 textes — Amendements en doublons", subtitle="Volume d'amendements quasi-identiques par texte", unit="amendements") }}
+</section>
+
+<section class="card sharable" data-share-title="Top 15 députés signataires de doublons — 17ᵉ législature">
+  <h2>Top 15 députés — par volume d'amendements en doublons</h2>
+  <p class="muted small">
+    Députés dont les amendements apparaissent le plus souvent dans un cluster
+    de doublons (toutes typologies confondues).
+  </p>
+  {% set chart_dep = [] %}
+  {% for d in top_deputes %}
+    {% set _ = chart_dep.append({'label': d.nom_complet ~ (' · ' ~ d.groupe_abrege if d.groupe_abrege else ''), 'value': d.n_amdts_clusterises, 'color': d.groupe_couleur or '#4f46e5'}) %}
+  {% endfor %}
+  <ol class="rank-list">
+    {% for d in top_deputes %}
+      <li>
+        <a href="/deputes/{{ d.uid }}">{{ d.nom_complet }}</a>
+        {{ group_badge(d.groupe_abrege, '', d.groupe_couleur) }}
+        <span class="muted">{{ d.n_amdts_clusterises | fint }} amendements en doublons</span>
+      </li>
+    {% endfor %}
+  </ol>
+  {{ chart_button(chart_dep, "Top 15 députés — Amendements en doublons", subtitle="Signataires les plus présents dans des clusters MinHash", unit="amendements") }}
+</section>
+
+<p class="muted small" style="margin-top: 24px;">
+  <a href="/clusters">→ Voir la liste complète des clusters par texte</a>
+</p>
+
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import hbar_chart, group_badge, chart_button %}
+{% block title %}Stats — Top députés{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Top députés</nav>
+<h1>Députés les plus actifs (questions)</h1>
+
+{% set chart_data = [] %}
+{% for r in rows %}{% set _ = chart_data.append({'label': r.nom_complet ~ ' (' ~ (r.groupe_abrege or '?') ~ ')', 'value': r.questions_total, 'color': r.groupe_couleur or '#6b7280'}) %}{% endfor %}
+{{ hbar_chart(chart_data, value_label='questions') }}
+{{ chart_button(chart_data, "Top députés — Questions parlementaires", subtitle="Nombre de questions posées (écrites + orales + au Gouvernement)", unit="questions") }}
+
+<table class="data-table">
+  <thead><tr><th></th><th>Député</th><th>Groupe</th><th>Département</th><th>Questions</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><div class="thumb" style="background-image:url('{{ r.photo_url }}')"></div></td>
+      <td><a href="/deputes/{{ r.uid }}">{{ r.nom_complet }}</a></td>
+      <td>{{ group_badge(r.groupe_abrege, '', r.groupe_couleur) }}</td>
+      <td>{{ r.departement or '—' }}</td>
+      <td><a href="/questions?auteur_uid={{ r.uid }}">{{ r.questions_total | fint }}</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

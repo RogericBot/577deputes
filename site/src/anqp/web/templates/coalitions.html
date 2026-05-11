@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge %}
+{% block title %}Coalitions{% endblock %}
+{% block content %}
+
+<h1>Coalitions & alliances de vote</h1>
+<div class="coalitions-intro">
+  Analyse des blocs politiques et de leurs alliances de vote sur les
+  {% if data.overview %}<strong>{{ data.overview.n_scrutins_total | fint }}</strong>{% else %}<strong>~6 500</strong>{% endif %}
+  scrutins publics nominatifs de la 17<sup>e</sup> législature. Toutes les
+  métriques sont calculées à partir des positions majoritaires
+  officielles publiées par l'Assemblée nationale (champ
+  <code>positionMajoritaire</code> de chaque scrutin × groupe).
+  <a href="/a-propos#coalitions">Méthodologie complète →</a>
+</div>
+
+<nav class="coalitions-tabs">
+  <a href="/coalitions?tab=blocs"   class="{% if tab == 'blocs' %}active{% endif %}">Blocs</a>
+  <a href="/coalitions?tab=matrice" class="{% if tab == 'matrice' %}active{% endif %}">Matrice de cohésion</a>
+  <a href="/coalitions?tab=sujets"  class="{% if tab == 'sujets' %}active{% endif %}">Alliances par sujet</a>
+  <a href="/coalitions?tab=carte"   class="{% if tab == 'carte' %}active{% endif %}">Cartographie</a>
+</nav>
+
+{# ============================================================ #}
+{# TAB A — BLOCS                                                #}
+{# ============================================================ #}
+{% if tab == 'blocs' %}
+<section>
+  <h2>Les {{ data.overview.n_groupes }} groupes politiques, regroupés par bloc</h2>
+  <p class="muted">
+    Les groupes parlementaires (GP) sont les unités de décision réelles à
+    l'Assemblée. Ils sont ici regroupés par <strong>bloc politique de fait</strong>
+    selon les alliances électorales 2024 et les soutiens parlementaires
+    publics. <a href="/a-propos#coalitions">Méthodo →</a>
+  </p>
+
+  <div class="blocs-grid">
+    {% for bloc in data.overview.blocs %}
+    <article class="bloc-card sharable" data-share-title="{{ bloc.name }} — {{ bloc.total }} députés"
+             style="--bloc-color: {{ bloc.color }};">
+      <header class="bloc-card-header">
+        <div class="bloc-card-strip"></div>
+        <div class="bloc-card-title">
+          <h3>{{ bloc.name }}</h3>
+          <p class="bloc-card-subtitle">{{ bloc.subtitle }}</p>
+        </div>
+      </header>
+
+      <div class="bloc-stats">
+        <div class="bloc-stat">
+          <span class="bloc-stat-num">{{ bloc.total | fint }}</span>
+          <span class="bloc-stat-label">député{% if bloc.total > 1 %}s{% endif %}</span>
+        </div>
+        <div class="bloc-stat">
+          <span class="bloc-stat-num">{{ bloc.members | length }}</span>
+          <span class="bloc-stat-label">groupe{% if bloc.members | length > 1 %}s{% endif %}</span>
+        </div>
+        <div class="bloc-stat">
+          <span class="bloc-stat-num">
+            {% if bloc.discipline_pct is not none %}{{ bloc.discipline_pct }}%{% else %}—{% endif %}
+          </span>
+          <span class="bloc-stat-label">discipline moy.</span>
+        </div>
+      </div>
+
+      <ul class="bloc-members">
+        {% for g in bloc.members %}
+        <li>
+          <a href="/deputes?groupe_uid={{ g.uid }}" class="bloc-member-link">
+            <span class="group-badge" style="background:{{ g.couleur or '#6b7280' }}">{{ g.abrege }}</span>
+            <span class="bloc-member-name">{{ g.libelle | truncate(38) }}</span>
+            <span class="bloc-member-eff">{{ g.effectif | fint }}</span>
+          </a>
+          <div class="bloc-member-bar">
+            <div class="bloc-member-fill"
+                 style="width: {{ ((g.effectif or 0) / (bloc.max_eff or 1) * 100) }}%;
+                        background: {{ g.couleur or '#6b7280' }};"></div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card" style="margin-top: 32px;">
+  <h3>Sur la classification en blocs</h3>
+  <p class="muted small">
+    Les blocs ne sont <strong>pas</strong> des groupes parlementaires
+    officiels. Ce sont des regroupements politiques de fait, basés sur
+    les alliances électorales 2024 (NFP), les soutiens parlementaires
+    publics du gouvernement, et la position institutionnelle (charnières).
+    Le mapping est documenté dans la page À propos.
+  </p>
+  <p class="muted small">
+    Les onglets suivants permettent de <em>vérifier ces blocs dans les
+    données réelles</em> : la matrice et la cartographie montrent les
+    alliances effectives observées sur les scrutins publics.
+  </p>
+</section>
+{% endif %}
+
+
+{# ============================================================ #}
+{# TAB B — MATRICE DE COHÉSION                                  #}
+{# ============================================================ #}
+{% if tab == 'matrice' %}
+{% set md = data.matrix_data %}
+<section>
+  <h2>Matrice de cohésion entre groupes</h2>
+  <p class="muted">
+    Pour chaque paire de groupes, % de scrutins publics où leurs
+    <strong>positions majoritaires coïncident</strong> (même camp : pour /
+    contre / abstention). Score de 100 % = vote toujours pareil ;
+    score de 0 % = vote toujours à l'opposé. Ne porte que sur les
+    scrutins où les deux groupes se sont exprimés.
+  </p>
+
+  <div class="matrix-wrap sharable" data-share-title="Matrice de cohésion entre groupes — 17ᵉ législature">
+    <table class="data-table matrix">
+      <thead>
+        <tr>
+          <th></th>
+          {% for g in md.groups %}
+          <th title="{{ g.libelle }}"><span class="group-badge" style="background:{{ g.couleur or '#6b7280' }}">{{ g.abrege }}</span></th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for g1 in md.groups %}
+        <tr>
+          <th title="{{ g1.libelle }}"><span class="group-badge" style="background:{{ g1.couleur or '#6b7280' }}">{{ g1.abrege }}</span></th>
+          {% for g2 in md.groups %}
+            {% set cell = md.matrix.get((g1.uid, g2.uid)) %}
+            {% if cell and cell.score is not none %}
+              {% set s = cell.score %}
+              {# Palette discrete a 5 paliers, plus lisible que HSL continu #}
+              {% if s >= 85 %}{% set bg = '#15803d' %}{% set fg = '#ffffff' %}
+              {% elif s >= 70 %}{% set bg = '#86efac' %}{% set fg = '#0f172a' %}
+              {% elif s >= 55 %}{% set bg = '#fef9c3' %}{% set fg = '#854d0e' %}
+              {% elif s >= 40 %}{% set bg = '#fed7aa' %}{% set fg = '#7c2d12' %}
+              {% elif s >= 25 %}{% set bg = '#fca5a5' %}{% set fg = '#7f1d1d' %}
+              {% else %}{% set bg = '#dc2626' %}{% set fg = '#ffffff' %}
+              {% endif %}
+              <td class="matrix-cell"
+                  style="background: {{ bg }}; color: {{ fg }};"
+                  title="{{ g1.abrege }} ↔ {{ g2.abrege }} : {{ cell.aligned or '—' }} / {{ cell.commun or '—' }} scrutins communs">
+                <strong>{{ s }}</strong>
+              </td>
+            {% else %}
+              <td class="matrix-cell muted">—</td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="matrix-legend">
+    <span class="muted">Légende :</span>
+    <span class="lg-item" style="background:#dc2626;color:#fff">&lt; 25 %</span>
+    <span class="lg-item" style="background:#fca5a5;color:#7f1d1d">25–40</span>
+    <span class="lg-item" style="background:#fed7aa;color:#7c2d12">40–55</span>
+    <span class="lg-item" style="background:#fef9c3;color:#854d0e">55–70</span>
+    <span class="lg-item" style="background:#86efac;color:#0f172a">70–85</span>
+    <span class="lg-item" style="background:#15803d;color:#fff">≥ 85 %</span>
+    <span class="muted">— survole une case pour voir le détail.</span>
+  </div>
+</section>
+{% endif %}
+
+
+{# ============================================================ #}
+{# TAB C — ALLIANCES PAR SUJET                                  #}
+{# ============================================================ #}
+{% if tab == 'sujets' %}
+<section>
+  <h2>Top 10 scrutins les plus clivants</h2>
+  <p class="muted">
+    Sélection automatique reproductible : les scrutins publics nominatifs
+    (a) suivis par au moins <strong>300 députés exprimés</strong>
+    (filtre les scrutins anecdotiques), (b) avec un écart
+    <strong>|pour − contre| ≤ 50 voix</strong> (= où les blocs ont
+    vraiment compté), (c) triés par écart croissant. Pas de choix
+    éditorial.
+  </p>
+
+  {% for s in data.topics.scrutins %}
+  {% set total = s.total_exprimes or 1 %}
+  {% set pct_pour = (s.nb_pour / total * 100) %}
+  {% set pct_contre = (s.nb_contre / total * 100) %}
+  {% set pct_abst = (s.nb_abstentions / total * 100) %}
+  <article class="scrutin-card sharable" data-share-title="Scrutin n°{{ s.numero }} — Coalition par groupe">
+    <h3>
+      <a href="/scrutins/{{ s.uid }}">
+        Scrutin n° {{ s.numero }}{% if s.titre or s.dossier_titre %} — {{ (s.titre or s.dossier_titre) | truncate(110) }}{% endif %}
+      </a>
+    </h3>
+    <div class="scrutin-meta">
+      {% if s.date_scrutin %}<strong>{{ s.date_scrutin | fdate }}</strong> · {% endif %}
+      {% if s.dossier_uid %}
+        Texte : <a href="/textes/{{ s.dossier_uid }}">{{ (s.dossier_titre or s.dossier_uid) | truncate(70) }}</a> ·
+      {% endif %}
+      <strong>{{ s.nb_pour }}</strong> pour /
+      <strong>{{ s.nb_contre }}</strong> contre /
+      <strong>{{ s.nb_abstentions }}</strong> abst.
+      — écart : <strong>{{ s.ecart_abs }}</strong> voix sur {{ s.total_exprimes | fint }} exprimés
+    </div>
+
+    {# Mini-barre proportions générales #}
+    <div class="vote-bar" title="{{ pct_pour | round(1) }}% pour · {{ pct_contre | round(1) }}% contre · {{ pct_abst | round(1) }}% abstention">
+      <div class="vb-pour" style="width: {{ pct_pour }}%"></div>
+      <div class="vb-contre" style="width: {{ pct_contre }}%"></div>
+      <div class="vb-abst" style="width: {{ pct_abst }}%"></div>
+    </div>
+
+    {# Positions regroupées par coalition (NFP / Bloc central / RN / Charnières / NI) #}
+    {% for bloc in s.positions_grouped %}
+      {% if bloc.bloc_dominant == 'pour' %}{% set bcls = 'bloc-pour' %}{% set blbl = 'POUR' %}
+      {% elif bloc.bloc_dominant == 'contre' %}{% set bcls = 'bloc-contre' %}{% set blbl = 'CONTRE' %}
+      {% elif bloc.bloc_dominant == 'abstention' %}{% set bcls = 'bloc-abst' %}{% set blbl = 'Abstention' %}
+      {% else %}{% set bcls = 'bloc-none' %}{% set blbl = '—' %}{% endif %}
+      <div class="bloc-row {{ bcls }}">
+        <div class="bloc-row-header">
+          <span class="bloc-name">{{ bloc.bloc }}</span>
+          <span class="bloc-summary">{{ blbl }}</span>
+        </div>
+        <div class="positions-grid">
+          {% for p in bloc.members %}
+            {% if p.dominant == 'pour' %}{% set cls = 'pos-pour' %}{% set lbl = 'POUR' %}
+            {% elif p.dominant == 'contre' %}{% set cls = 'pos-contre' %}{% set lbl = 'CONTRE' %}
+            {% elif p.dominant == 'abstention' %}{% set cls = 'pos-abst' %}{% set lbl = 'Abst.' %}
+            {% else %}{% set cls = 'pos-none' %}{% set lbl = '—' %}{% endif %}
+            <div class="position-cell {{ cls }}">
+              <span class="group-badge" style="background:{{ p.couleur or '#6b7280' }}">{{ p.abrege }}</span>
+              <strong>{{ lbl }}</strong>
+              {% if p.dominant %}
+                <span class="pos-detail">{{ p.pour }}/{{ p.contre }}/{{ p.abstention }}</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </article>
+  {% else %}
+    <p class="empty">Aucun scrutin ne correspond aux critères.</p>
+  {% endfor %}
+</section>
+{% endif %}
+
+
+{# ============================================================ #}
+{# TAB D — CARTOGRAPHIE 2D                                      #}
+{# ============================================================ #}
+{% if tab == 'carte' %}
+{% set tri = data.ternary %}
+<section>
+  <h2>Diagramme ternaire des groupes politiques</h2>
+  <p class="muted">
+    Chaque groupe est positionné dans un triangle dont les <strong>3
+    sommets représentent 3 ancres</strong> (par défaut les 3 blocs
+    principaux). La position d'un groupe reflète ses cohésions de vote
+    relatives avec ces 3 ancres : plus il est proche d'un sommet, plus
+    il vote comme l'ancre de ce sommet.
+  </p>
+
+  <form method="get" action="/coalitions" class="network-form">
+    <input type="hidden" name="tab" value="carte">
+    <label>
+      Sommet haut :
+      <select name="at">
+        {% for g in tri.groups %}
+        <option value="{{ g.uid }}" {% if g.uid == tri.anchor_top_uid %}selected{% endif %}>
+          {{ g.abrege }} — {{ g.libelle | truncate(34) }} ({{ g.effectif | fint }} député{% if g.effectif > 1 %}s{% endif %})
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Sommet bas-gauche :
+      <select name="abl">
+        {% for g in tri.groups %}
+        <option value="{{ g.uid }}" {% if g.uid == tri.anchor_bl_uid %}selected{% endif %}>
+          {{ g.abrege }} — {{ g.libelle | truncate(34) }} ({{ g.effectif | fint }} député{% if g.effectif > 1 %}s{% endif %})
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Sommet bas-droite :
+      <select name="abr">
+        {% for g in tri.groups %}
+        <option value="{{ g.uid }}" {% if g.uid == tri.anchor_br_uid %}selected{% endif %}>
+          {{ g.abrege }} — {{ g.libelle | truncate(34) }} ({{ g.effectif | fint }} député{% if g.effectif > 1 %}s{% endif %})
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn">Mettre à jour</button>
+    <span class="form-suggest">
+      Défaut : <strong>{{ tri.anchor_top_label }}</strong> (haut),
+      <strong>{{ tri.anchor_bl_label }}</strong> (bas-gauche),
+      <strong>{{ tri.anchor_br_label }}</strong> (bas-droite)
+    </span>
+  </form>
+
+  <section class="network-card sharable" data-share-title="Diagramme ternaire — {{ tri.anchor_top_label }} / {{ tri.anchor_bl_label }} / {{ tri.anchor_br_label }}">
+    <svg viewBox="0 0 600 540" width="100%" height="auto" style="max-width: 700px; display: block; margin: 0 auto;">
+      {# Lignes de graduation à 25% / 50% / 75% (parallèles à chaque côté) #}
+      <g class="ternary-grid" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3 3" fill="none">
+        {# Lignes parallèles au côté bas (BL-BR), partant du sommet TOP #}
+        {% for h in [0.25, 0.5, 0.75] %}
+          {% set x1 = tri.v_top[0] + h * (tri.v_bl[0] - tri.v_top[0]) %}
+          {% set y1 = tri.v_top[1] + h * (tri.v_bl[1] - tri.v_top[1]) %}
+          {% set x2 = tri.v_top[0] + h * (tri.v_br[0] - tri.v_top[0]) %}
+          {% set y2 = tri.v_top[1] + h * (tri.v_br[1] - tri.v_top[1]) %}
+          <line x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 }}" y2="{{ y2 }}"/>
+        {% endfor %}
+        {# Lignes parallèles au côté gauche (TOP-BL), partant du sommet BR #}
+        {% for h in [0.25, 0.5, 0.75] %}
+          {% set x1 = tri.v_br[0] + h * (tri.v_top[0] - tri.v_br[0]) %}
+          {% set y1 = tri.v_br[1] + h * (tri.v_top[1] - tri.v_br[1]) %}
+          {% set x2 = tri.v_br[0] + h * (tri.v_bl[0] - tri.v_br[0]) %}
+          {% set y2 = tri.v_br[1] + h * (tri.v_bl[1] - tri.v_br[1]) %}
+          <line x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 }}" y2="{{ y2 }}"/>
+        {% endfor %}
+        {# Lignes parallèles au côté droite (TOP-BR), partant du sommet BL #}
+        {% for h in [0.25, 0.5, 0.75] %}
+          {% set x1 = tri.v_bl[0] + h * (tri.v_top[0] - tri.v_bl[0]) %}
+          {% set y1 = tri.v_bl[1] + h * (tri.v_top[1] - tri.v_bl[1]) %}
+          {% set x2 = tri.v_bl[0] + h * (tri.v_br[0] - tri.v_bl[0]) %}
+          {% set y2 = tri.v_bl[1] + h * (tri.v_br[1] - tri.v_bl[1]) %}
+          <line x1="{{ x1 }}" y1="{{ y1 }}" x2="{{ x2 }}" y2="{{ y2 }}"/>
+        {% endfor %}
+      </g>
+
+      {# Bordures du triangle #}
+      <polygon points="{{ tri.v_top[0] }},{{ tri.v_top[1] }} {{ tri.v_bl[0] }},{{ tri.v_bl[1] }} {{ tri.v_br[0] }},{{ tri.v_br[1] }}"
+               fill="none" stroke="#475569" stroke-width="2.5"/>
+
+      {# Étiquettes des 3 sommets #}
+      <text x="{{ tri.v_top[0] }}" y="{{ tri.v_top[1] - 18 }}"
+            text-anchor="middle" fill="#0f172a" font-size="16" font-weight="700">
+        {{ tri.anchor_top_label }}
+      </text>
+      <text x="{{ tri.v_bl[0] - 8 }}" y="{{ tri.v_bl[1] + 28 }}"
+            text-anchor="end" fill="#0f172a" font-size="16" font-weight="700">
+        {{ tri.anchor_bl_label }}
+      </text>
+      <text x="{{ tri.v_br[0] + 8 }}" y="{{ tri.v_br[1] + 28 }}"
+            text-anchor="start" fill="#0f172a" font-size="16" font-weight="700">
+        {{ tri.anchor_br_label }}
+      </text>
+
+      {# Nœuds (groupes) #}
+      {% for n in tri.nodes %}
+        {% set r = 12 + (n.effectif | default(10)) ** 0.5 * 1.4 %}
+        <g class="net-node">
+          <circle cx="{{ n.x }}" cy="{{ n.y }}" r="{{ r }}"
+                  fill="{{ n.couleur or '#6b7280' }}" stroke="white" stroke-width="2.5"
+                  opacity="0.9">
+            <title>{{ n.libelle }} — {{ n.effectif }} députés
+{{ tri.anchor_top_label }} : {{ n.w_top }}%
+{{ tri.anchor_bl_label }} : {{ n.w_bl }}%
+{{ tri.anchor_br_label }} : {{ n.w_br }}%</title>
+          </circle>
+          <text x="{{ n.x }}" y="{{ n.y + 4 }}" text-anchor="middle"
+                fill="white" font-size="11" font-weight="700"
+                style="pointer-events: none;">{{ n.abrege }}</text>
+        </g>
+      {% endfor %}
+    </svg>
+  </section>
+
+  <section class="card" style="margin-top: 24px;">
+    <h3>Comment lire un diagramme ternaire</h3>
+    <ul class="muted small">
+      <li>Les <strong>3 sommets</strong> sont les 3 ancres. Un point
+        placé exactement sur un sommet = 100 % de cohésion avec cette
+        ancre. Plus on s'éloigne du sommet, moins on en partage les
+        votes.</li>
+      <li>Le <strong>centre du triangle</strong> = équilibre parfait
+        entre les 3 ancres (33 % chacune). C'est typiquement la zone
+        des groupes pivots.</li>
+      <li>Les <strong>côtés</strong> représentent les axes opposés à
+        chaque sommet. Plus un point se rapproche d'un côté, plus il
+        s'éloigne du sommet opposé.</li>
+      <li>Survole un cercle pour voir ses 3 cohésions exactes (en %).</li>
+      <li>Les positions sont calculées en <strong>coordonnées
+        barycentriques</strong> à partir de la matrice de cohésion :
+        pour chaque groupe, ses 3 cohésions avec les 3 ancres sont
+        normalisées pour sommer à 100 %.</li>
+    </ul>
+  </section>
+</section>
+{% endif %}
+
+<script defer src="/static/coalitions-share.js"></script>
+
+{% endblock %}

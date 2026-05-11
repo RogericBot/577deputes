@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import hbar_chart, donut_chart, chart_button %}
+{% from "_palettes.html" import statut_dossier_color %}
+{% block title %}Stats — Textes{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Textes</nav>
+<h1>Volume et adoption des textes (17ᵉ législature)</h1>
+
+<section class="card">
+  <h2>Par statut</h2>
+  <p class="muted small">Répartition de tous les dossiers législatifs déposés selon leur état d'avancement.</p>
+  {% set chart = [] %}
+  {% for r in data.by_status %}{% set _ = chart.append({'label': r.statut | statut_dossier, 'value': r.c, 'color': statut_dossier_color(r.statut)}) %}{% endfor %}
+  {{ donut_chart(chart, value_label='dossiers') }}
+  {{ chart_button(chart, "Textes par statut — 17ᵉ législature", subtitle="Répartition des dossiers législatifs", unit="dossiers") }}
+</section>
+
+<section>
+  <h2>Par initiateur</h2>
+  <table class="data-table">
+    <thead><tr><th>Initiateur</th><th>Total</th><th>Adoptés</th><th>Rejetés</th><th>Taux d'adoption</th></tr></thead>
+    <tbody>
+    {% for r in data.by_initiateur %}
+      <tr>
+        <td><a href="/textes?initiateur={{ r.initiateur_type }}">{{ r.initiateur_type }}</a></td>
+        <td>{{ r.c | fint }}</td>
+        <td>{{ r.adoptes | fint }}</td>
+        <td>{{ r.rejetes | fint }}</td>
+        <td>{% if r.c %}{{ ((r.adoptes or 0) / r.c * 100) | round(1) }}%{% else %}—{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Volume mensuel des dépôts</h2>
+  <p class="muted small">Nombre de dossiers déposés chaque mois.</p>
+  {% set ch = [] %}
+  {% for r in data.by_month %}{% set _ = ch.append({'label': r.month, 'value': r.c, 'color': '#0ea5e9'}) %}{% endfor %}
+  {{ hbar_chart(ch, value_label='dossiers') }}
+  {{ chart_button(ch, "Volume mensuel des dépôts de textes", subtitle="Nombre de dossiers déposés par mois — 17ᵉ législature", unit="dossiers") }}
+</section>
+{% endblock %}

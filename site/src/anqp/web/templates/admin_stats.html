@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Stats — Administration{% endblock %}
+{% block content %}
+
+<h1>Statistiques de visite</h1>
+<p class="muted">
+  Compteur interne, jamais exposé publiquement. Pas de service tiers,
+  pas de fingerprinting, pas d'IP stockée — juste un cookie aléatoire
+  pour identifier les visiteurs revenant et des compteurs agrégés
+  par catégorie de User-Agent et par page visitée. Conforme RGPD.
+</p>
+
+<section class="grid grid-3 cards">
+  <div class="card">
+    <h3>👤 Pages vues — humains</h3>
+    <p class="big">{{ summary.total_page_views | fint }}</p>
+    <p class="muted">{{ summary.total_unique_visitors | fint }} visiteurs uniques · {{ summary.avg_visits_per_visitor }} pages/visiteur en moyenne</p>
+  </div>
+  <div class="card">
+    <h3>📅 Aujourd'hui</h3>
+    <p class="big">{{ summary.today_page_views | fint }}</p>
+    <p class="muted">pages humaines · {{ summary.today_unique_visitors | fint }} uniques · {{ summary.today_bot_page_views | fint }} bots</p>
+  </div>
+  <div class="card">
+    <h3>🤖 Suspicion bots</h3>
+    <p class="big">{{ summary.total_bot_page_views | fint }}</p>
+    <p class="muted">{{ summary.total_bot_visitors | fint }} agents distincts détectés</p>
+  </div>
+</section>
+
+<section>
+  <h2>📊 Trafic par jour (30 derniers jours)</h2>
+  {% if summary.daily %}
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Jour</th>
+        <th>👤 Pages humains</th>
+        <th>👤 Uniques humains</th>
+        <th>🤖 Pages bots</th>
+        <th>🤖 Uniques bots</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for d in summary.daily %}
+      <tr>
+        <td>{{ d.day }}</td>
+        <td><strong>{{ d.page_views | fint }}</strong></td>
+        <td>{{ d.unique_visitors | fint }}</td>
+        <td class="muted">{{ d.bot_page_views | fint }}</td>
+        <td class="muted">{{ d.bot_unique_visitors | fint }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">Aucune donnée encore.</p>
+  {% endif %}
+</section>
+
+<section class="grid grid-2" style="margin-top: 32px;">
+  <div>
+    <h2>🌐 Top User-Agents (30 j)</h2>
+    {% if summary.top_categories %}
+    <table class="data-table">
+      <thead><tr><th>Catégorie</th><th>Pages vues</th></tr></thead>
+      <tbody>
+      {% for c in summary.top_categories %}
+        <tr>
+          <td>{{ c.category }}</td>
+          <td><strong>{{ c.page_views | fint }}</strong></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Aucune donnée encore.</p>
+    {% endif %}
+  </div>
+
+  <div>
+    <h2>📄 Top pages visitées (30 j)</h2>
+    {% if summary.top_paths %}
+    <table class="data-table">
+      <thead><tr><th>Page</th><th>Pages vues</th></tr></thead>
+      <tbody>
+      {% for p in summary.top_paths %}
+        <tr>
+          <td><code style="font-size: 12px;">{{ p.path }}</code></td>
+          <td><strong>{{ p.page_views | fint }}</strong></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">Aucune donnée encore.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card" style="margin-top: 32px;">
+  <h3>Méthodologie & RGPD</h3>
+  <p class="muted small">
+    <strong>Détection bots</strong> : un visiteur est classé « bot » si son User-Agent
+    matche un pattern connu (Googlebot, Bingbot, Claude, GPT, Wget, Curl, etc.)
+    OU s'il ne contient pas la chaîne <code>Mozilla</code> (heuristique : tous les
+    navigateurs réels la mettent ; son absence indique un script ou outil).
+    UA vide = bot suspect.
+  </p>
+  <p class="muted small">
+    <strong>Top User-Agents</strong> : seules des <em>catégories agrégées</em> sont
+    stockées (ex : « Chrome desktop », « Bot — Googlebot »). Aucun User-Agent
+    brut, aucune IP, aucun fingerprint n'est conservé.
+  </p>
+  <p class="muted small">
+    <strong>Top pages</strong> : les UID sont remplacés par <code>[uid]</code>
+    pour agréger (ex : <code>/deputes/[uid]</code> au lieu de
+    <code>/deputes/PA12345</code>). Pas de query string conservée.
+  </p>
+  <p class="muted small">
+    <strong>Données stockées</strong> : <code>data/analytics.db</code>, jamais
+    transmis à un tiers, jamais exporté, accessible uniquement depuis cette
+    page (HTTP Basic Auth).
+  </p>
+</section>
+
+{% endblock %}

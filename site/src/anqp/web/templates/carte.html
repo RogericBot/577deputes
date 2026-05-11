@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge %}
+{% block title %}Carte des circonscriptions{% endblock %}
+{% block content %}
+
+<h1>Carte des circonscriptions législatives</h1>
+<p class="muted">
+  France métropolitaine + Corse coloriée par groupe parlementaire du député.
+  <strong>Survolez</strong> pour voir le député, <strong>cliquez</strong> pour ouvrir
+  sa fiche. <strong>Survolez la légende</strong> pour mettre en évidence un groupe.
+</p>
+
+<section class="card france-map-card sharable" data-share-title="Carte des circonscriptions — 17ᵉ législature">
+  <div class="france-map-layout">
+    <aside class="france-map-legend-side">
+      <h4>Groupes parlementaires</h4>
+      <p class="muted small" style="margin:4px 0 8px">Survolez pour mettre en évidence.</p>
+      <ul class="map-legend-vertical">
+        {% for g in legend %}
+          <li data-groupe-uid="{{ g.uid }}" class="legend-item">
+            <span class="legend-swatch" style="background:{{ g.couleur or '#cbd5e1' }}"></span>
+            <span class="legend-text">
+              <strong>{{ g.abrege or '?' }}</strong>
+              <span class="muted small">
+                {{ g.deputies }} député{% if g.deputies > 1 %}s{% endif %}
+                {% if g.population %}· {{ g.population | fint }} hab.{% endif %}
+                {% if g.inscrits %}· {{ g.inscrits | fint }} inscrits{% endif %}
+              </span>
+            </span>
+          </li>
+        {% endfor %}
+        <li class="legend-item legend-vacant">
+          <span class="legend-swatch" style="background:#cbd5e1"></span>
+          <span class="legend-text muted small">circonscription sans député</span>
+        </li>
+      </ul>
+    </aside>
+    <div class="france-map-wrapper">
+      <div class="france-map-controls">
+        <button type="button" data-map-action="zoom-in" title="Zoomer">+</button>
+        <button type="button" data-map-action="zoom-out" title="Dézoomer">−</button>
+        <button type="button" data-map-action="reset" title="Réinitialiser le cadrage">↺</button>
+        <span class="muted small map-help">molette pour zoomer · glisser pour déplacer</span>
+      </div>
+      {{ map_svg | safe }}
+      <div id="map-hover-card" class="map-hover-card"></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Outre-mer & circonscriptions hors-métropole</h3>
+  <p class="muted small">
+    Les députés des départements et collectivités d'outre-mer ainsi que
+    ceux des circonscriptions des Français de l'étranger ne sont pas
+    représentés sur la carte (échelles incompatibles ou absence de
+    polygone géographique). Ils sont listés ci-dessous, avec la couleur
+    de leur groupe.
+  </p>
+  <div class="dom-grid">
+    {% for dept in dom %}
+      <div class="dom-card">
+        <h4>{{ dept.dept_name }} <span class="muted">({{ dept.dept_code }})</span></h4>
+        <ul class="dom-list">
+          {% for m in dept.members %}
+            <li class="dom-row" data-groupe-uid="{{ m.groupe_uid or '' }}">
+              <a href="/deputes/{{ m.uid }}" class="dom-link">
+                <span class="dom-circo-num" style="background:{{ m.groupe_couleur or '#cbd5e1' }}">
+                  {{ m.circonscription }}<sup>e</sup>
+                </span>
+                <span class="dom-name">{{ m.nom_complet }}</span>
+                {% if m.groupe_abrege %}
+                  <span class="group-badge" style="background:{{ m.groupe_couleur or '#777' }}">
+                    {{ m.groupe_abrege }}
+                  </span>
+                {% endif %}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+<script defer src="/static/france-map.js"></script>
+{% endblock %}

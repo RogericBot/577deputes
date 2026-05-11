@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}577députés{% endblock %} — Activité parlementaire · XVIIᵉ législature</title>
+  {% set _default_desc = "Explorateur indépendant de l'activité parlementaire : textes, amendements, scrutins et questions de la 17ᵉ législature de l'Assemblée nationale, croisés avec les fiches des 577 députés. Données open data officielles." %}
+  {% set page_desc = meta_description | default(_default_desc, true) %}
+  {% set page_url = "https://577deputes.fr" + (request.url.path if request else "/") %}
+  <meta name="description" content="{{ page_desc }}">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="{{ page_url }}">
+
+  {# Open Graph (Facebook, LinkedIn, Discord, WhatsApp...) #}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="577députés">
+  <meta property="og:title" content="{% block og_title %}577députés — Activité parlementaire · XVIIᵉ législature{% endblock %}">
+  <meta property="og:description" content="{{ page_desc }}">
+  <meta property="og:url" content="{{ page_url }}">
+  <meta property="og:image" content="https://577deputes.fr/static/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="fr_FR">
+
+  {# Twitter / X #}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="577députés — Activité parlementaire · XVIIᵉ législature">
+  <meta name="twitter:description" content="{{ page_desc }}">
+  <meta name="twitter:image" content="https://577deputes.fr/static/og-image.png">
+
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <script defer src="/static/share.js"></script>
+  <script defer src="/static/chart-modal.js"></script>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <header class="app-header">
+    <div class="container">
+      <a class="brand" href="/">
+        <span class="brand-mark">577</span>
+        <span class="brand-text">577députés <small>17ᵉ législature</small></span>
+      </a>
+      <nav class="main-nav">
+        <a href="/textes">Textes</a>
+        <a href="/scrutins">Scrutins</a>
+        <a href="/questions">Questions</a>
+        <a href="/deputes">Députés</a>
+        <a href="/carte">Carte</a>
+        <a href="/clusters">Doublons</a>
+        <a href="/coalitions">Coalitions</a>
+        <a href="/analyses">Analyses</a>
+        <a href="/tops">Tops</a>
+        <a href="/stats">Stats</a>
+        <a href="/a-propos">À propos</a>
+        <a href="/recherche" class="nav-search" title="Recherche transverse" aria-label="Recherche">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </a>
+        {% set legs = available_legislatures() %}
+        {% if legs and legs | length > 1 %}
+        <form action="/legislature/switch" method="post" class="leg-switcher" id="leg-switcher">
+          <select name="leg" onchange="window.location.href='/legislature/' + this.value + '?next=' + encodeURIComponent(window.location.pathname + window.location.search)">
+            {% for l in legs %}
+              <option value="{{ l }}" {% if l == current_legislature() %}selected{% endif %}>{{ l }}ᵉ législature</option>
+            {% endfor %}
+          </select>
+        </form>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="app-footer">
+    <div class="container">
+      <p class="footer-main">
+        <strong>577députés</strong> · activité parlementaire de la 17ᵉ législature
+        — <a href="/a-propos">méthodologie & sources</a>
+        · <a href="/mentions-legales">mentions légales</a>
+        · <a href="/api/docs">API</a>
+      </p>
+      <p class="footer-disclaimer">
+        Site indépendant, sans affiliation politique, partisane ou institutionnelle.
+        Toutes les données proviennent de l'open data publié par
+        <a href="https://data.assemblee-nationale.fr" rel="noopener" target="_blank">data.assemblee-nationale.fr</a>
+        sous Licence Ouverte (Etalab) ; aucune donnée n'est inventée ni
+        commentée par le site.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

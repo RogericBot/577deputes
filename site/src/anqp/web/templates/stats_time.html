@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import line_chart, chart_button_line %}
+{% from "_palettes.html" import qtype_color %}
+{% block title %}Stats — Évolution mensuelle{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Évolution mensuelle</nav>
+<h1>Volume de questions, par mois et par type</h1>
+
+{# Pivot rows: month -> type -> count #}
+{% set months = [] %}
+{% set types = [] %}
+{% set pivot = {} %}
+{% for r in rows %}
+  {% if r.month not in months %}{% set _ = months.append(r.month) %}{% endif %}
+  {% if r.type not in types %}{% set _ = types.append(r.type) %}{% endif %}
+  {% set _ = pivot.setdefault(r.month, {}).update({r.type: r.c}) %}
+{% endfor %}
+{% set _ = months.sort() %}
+{% set series = [] %}
+{% for t in types %}
+  {% set values = [] %}
+  {% for m in months %}{% set _ = values.append(pivot.get(m, {}).get(t, 0)) %}{% endfor %}
+  {% set _ = series.append({'name': t | qtype_long, 'values': values, 'color': qtype_color(t)}) %}
+{% endfor %}
+
+{{ line_chart(series, months) }}
+{{ chart_button_line(
+    series, months,
+    "Évolution mensuelle des questions parlementaires — 17ᵉ législature",
+    subtitle="Nombre de questions déposées chaque mois, par type"
+) }}
+
+<table class="data-table">
+  <thead><tr><th>Mois</th>{% for t in types %}<th>{{ t | qtype_long }}</th>{% endfor %}<th>Total</th></tr></thead>
+  <tbody>
+  {% for m in months %}
+    {% set total = 0 %}
+    <tr>
+      <td>{{ m }}</td>
+      {% for t in types %}
+        {% set v = pivot.get(m, {}).get(t, 0) %}
+        {% set total = total + v %}
+        <td>{{ v | fint }}</td>
+      {% endfor %}
+      <td><strong>{{ total | fint }}</strong></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

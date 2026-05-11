@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chart_button %}
+{% block title %}Scrutin {{ s.numero }}{% endblock %}
+{% block content %}
+
+<nav class="breadcrumb">
+  <a href="/scrutins">Scrutins</a> /
+  <span class="muted">n° {{ s.numero }}</span>
+</nav>
+
+<article class="scrutin-detail">
+  <header class="card">
+    <p class="meta">
+      <span class="qtype qtype-scrutin">scrutin public</span>
+      <span>n° {{ s.numero }}</span>
+      <span class="muted">{{ s.date_scrutin | fdate }}</span>
+      {% if s.source_url %}<a class="btn-link" href="{{ s.source_url }}" target="_blank" rel="noopener">Source officielle ↗</a>{% endif %}
+    </p>
+    <h1>{{ s.titre or s.objet or 'Scrutin n° ' ~ s.numero }}</h1>
+
+    <ul class="kv">
+      <li><span>Sort</span> <strong>{{ s.sort_libelle or s.sort_code or '—' }}</strong></li>
+      <li><span>Type</span> <strong>{{ s.type_vote_libelle or '—' }}</strong></li>
+      <li><span>Demandeur</span> <strong>{{ s.demandeur or '—' }}</strong></li>
+      {% if s.dossier_titre %}
+      <li><span>Texte rattaché</span> <strong><a href="/textes/{{ s.dossier_uid }}">{{ s.dossier_titre | truncate(120) }}</a></strong></li>
+      {% endif %}
+    </ul>
+
+    <div class="grid grid-2">
+      <div>
+        <h3>Décompte officiel</h3>
+        <ul class="kv">
+          <li><span>Votants</span> <strong>{{ s.nombre_votants | fint }}</strong></li>
+          <li><span>Suffrages exprimés</span> <strong>{{ s.suffrages_exprimes | fint }}</strong></li>
+          <li><span>Seuil de majorité</span> <strong>{{ s.seuil_majorite | fint }}</strong></li>
+          <li><span>Pour</span> <strong style="color:var(--good)">{{ s.nb_pour | fint }}</strong></li>
+          <li><span>Contre</span> <strong style="color:var(--bad)">{{ s.nb_contre | fint }}</strong></li>
+          <li><span>Abstentions</span> <strong>{{ s.nb_abstentions | fint }}</strong></li>
+          <li><span>Non-votants</span> <strong class="muted">{{ s.nb_non_votants | fint }}</strong></li>
+        </ul>
+      </div>
+      {% set chart_pour = [] %}
+      {% set chart_contre = [] %}
+      {% for g in ventilation %}
+        {% if g.nb_pour or g.nb_contre %}
+          {% set _ = chart_pour.append({'label': g.abrege or '?', 'value': g.nb_pour or 0, 'color': g.couleur or '#15803d'}) %}
+          {% set _ = chart_contre.append({'label': g.abrege or '?', 'value': g.nb_contre or 0, 'color': g.couleur or '#dc2626'}) %}
+        {% endif %}
+      {% endfor %}
+      <div>
+        <h3>Ventilation par groupe</h3>
+        <p>
+          {{ chart_button(chart_pour, "Scrutin n°" ~ s.numero ~ " — Voix POUR par groupe", subtitle=(s.titre or '') | truncate(120), unit="pour") }}
+          {{ chart_button(chart_contre, "Scrutin n°" ~ s.numero ~ " — Voix CONTRE par groupe", subtitle=(s.titre or '') | truncate(120), unit="contre", label="Voir le contre") }}
+        </p>
+        <table class="data-table compact">
+          <thead><tr><th>Groupe</th><th>Pour</th><th>Contre</th><th>Abst.</th><th>Disc.</th></tr></thead>
+          <tbody>
+          {% for g in ventilation %}
+            {% set total = (g.nb_pour or 0) + (g.nb_contre or 0) + (g.nb_abstentions or 0) %}
+            {% set discipline = ([g.nb_pour or 0, g.nb_contre or 0, g.nb_abstentions or 0] | max) %}
+            <tr>
+              <td><span class="group-badge" style="background:{{ g.couleur or '#6b7280' }}">{{ g.abrege or '?' }}</span></td>
+              <td><a href="/scrutins/{{ s.uid }}/votants?position=pour&groupe_uid={{ g.uid }}">{{ g.nb_pour | fint }}</a></td>
+              <td><a href="/scrutins/{{ s.uid }}/votants?position=contre&groupe_uid={{ g.uid }}">{{ g.nb_contre | fint }}</a></td>
+              <td><a href="/scrutins/{{ s.uid }}/votants?position=abstention&groupe_uid={{ g.uid }}">{{ g.nb_abstentions | fint }}</a></td>
+              <td>{% if total > 0 %}{{ ((discipline / total) * 100) | round(0) | int }}%{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <p class="muted small">Discipline = (max votes alignés / total votes exprimés du groupe). 100 % = unanimité.</p>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Liste nominative</h2>
+    <p>
+      <a class="btn" href="/scrutins/{{ s.uid }}/votants?position=pour">Voir les pour ({{ s.nb_pour | fint }})</a>
+      <a class="btn" href="/scrutins/{{ s.uid }}/votants?position=contre">Voir les contre ({{ s.nb_contre | fint }})</a>
+      <a class="btn" href="/scrutins/{{ s.uid }}/votants?position=abstention">Voir les abstentions ({{ s.nb_abstentions | fint }})</a>
+      <a class="btn" href="/scrutins/{{ s.uid }}/votants">Tous les votants</a>
+    </p>
+  </section>
+</article>
+{% endblock %}

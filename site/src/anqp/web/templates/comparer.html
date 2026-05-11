@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge %}
+{% block title %}Comparer deux députés{% endblock %}
+{% block content %}
+
+<h1>Comparer deux députés</h1>
+
+<form method="get" action="/comparer" class="filter-bar">
+  <input list="dep-list" name="a" value="{{ a or '' }}" placeholder="Député A (UID PA…)" required>
+  <span class="muted" style="font-size:24px">vs</span>
+  <input list="dep-list" name="b" value="{{ b or '' }}" placeholder="Député B (UID PA…)" required>
+  <button type="submit">Comparer</button>
+  {% if a and b %}<a class="btn-link" href="/comparer">Réinitialiser</a>{% endif %}
+</form>
+<datalist id="dep-list">
+  {% for d in deputies %}<option value="{{ d.uid }}">{{ d.nom_complet }} ({{ d.groupe_abrege or '?' }})</option>{% endfor %}
+</datalist>
+<p class="muted small">Astuce : commencez à taper un nom dans le champ pour voir l'autocomplétion.</p>
+
+{% if metrics_a and metrics_b and metrics_a.deputy and metrics_b.deputy %}
+{% set da = metrics_a.deputy %}
+{% set db_ = metrics_b.deputy %}
+{% set qa = metrics_a.questions %}
+{% set qb = metrics_b.questions %}
+{% set aa = metrics_a.amdt %}
+{% set ab = metrics_b.amdt %}
+{% set va = metrics_a.discipline %}
+{% set vb = metrics_b.discipline %}
+
+<section class="sharable" data-share-title="{{ da.nom_complet }} vs {{ db_.nom_complet }}">
+<div class="grid grid-2 compare-headers">
+  <div class="card">
+    <header class="deputy-header">
+      <div class="deputy-photo big" style="background-image:url('/photo/{{ da.uid }}')"></div>
+      <div>
+        <h2><a href="/deputes/{{ da.uid }}">{{ da.civilite or '' }} {{ da.nom_complet }}</a></h2>
+        <p>{{ group_badge(da.groupe_abrege, da.groupe_libelle, da.groupe_couleur) }}</p>
+        <p class="muted">{{ da.departement }}{% if da.circonscription %} · {{ da.circonscription }}ᵉ{% endif %} · {{ da.profession or '—' }}</p>
+      </div>
+    </header>
+  </div>
+  <div class="card">
+    <header class="deputy-header">
+      <div class="deputy-photo big" style="background-image:url('/photo/{{ db_.uid }}')"></div>
+      <div>
+        <h2><a href="/deputes/{{ db_.uid }}">{{ db_.civilite or '' }} {{ db_.nom_complet }}</a></h2>
+        <p>{{ group_badge(db_.groupe_abrege, db_.groupe_libelle, db_.groupe_couleur) }}</p>
+        <p class="muted">{{ db_.departement }}{% if db_.circonscription %} · {{ db_.circonscription }}ᵉ{% endif %} · {{ db_.profession or '—' }}</p>
+      </div>
+    </header>
+  </div>
+</div>
+
+<table class="data-table compare-table">
+  <thead>
+    <tr><th>Métrique</th><th>{{ da.nom_complet }}</th><th>{{ db_.nom_complet }}</th></tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="3" class="section-row">Questions parlementaires</td></tr>
+    <tr><td>Total des questions</td>{% set max_v = [qa.total or 0, qb.total or 0] | max %}
+      {% for v in [qa.total or 0, qb.total or 0] %}
+      <td><strong>{{ v | fint }}</strong>{% if max_v > 0 %} <span class="bar-mini" style="width:{{ (v / max_v * 100) }}%"></span>{% endif %}</td>
+      {% endfor %}</tr>
+    <tr><td>Avec réponse</td>
+      <td>{{ qa.answered | fint }}{% if qa.total %} ({{ ((qa.answered or 0) / qa.total * 100) | round(1) }}%){% endif %}</td>
+      <td>{{ qb.answered | fint }}{% if qb.total %} ({{ ((qb.answered or 0) / qb.total * 100) | round(1) }}%){% endif %}</td>
+    </tr>
+    <tr><td>Délai moyen (j)</td>
+      <td>{{ qa.avg_delay | ffloat(1) }}</td>
+      <td>{{ qb.avg_delay | ffloat(1) }}</td>
+    </tr>
+
+    <tr><td colspan="3" class="section-row">Amendements</td></tr>
+    <tr><td>Total déposés</td>{% set max_v = [aa.total or 0, ab.total or 0] | max %}
+      {% for v in [aa.total or 0, ab.total or 0] %}
+      <td><strong>{{ v | fint }}</strong>{% if max_v > 0 %} <span class="bar-mini" style="width:{{ (v / max_v * 100) }}%"></span>{% endif %}</td>
+      {% endfor %}</tr>
+    <tr><td>Adoptés</td>
+      <td>{{ aa.adoptes | fint }}{% if aa.total %} ({{ ((aa.adoptes or 0) / aa.total * 100) | round(1) }}%){% endif %}</td>
+      <td>{{ ab.adoptes | fint }}{% if ab.total %} ({{ ((ab.adoptes or 0) / ab.total * 100) | round(1) }}%){% endif %}</td>
+    </tr>
+    <tr><td>En commission / en séance</td>
+      <td>{{ aa.commission | fint }} / {{ aa.seance | fint }}</td>
+      <td>{{ ab.commission | fint }} / {{ ab.seance | fint }}</td>
+    </tr>
+
+    <tr><td colspan="3" class="section-row">Scrutins publics</td></tr>
+    <tr><td>Votes exprimés</td>{% set max_v = [va.expressed or 0, vb.expressed or 0] | max %}
+      {% for v in [va.expressed or 0, vb.expressed or 0] %}
+      <td><strong>{{ v | fint }}</strong>{% if max_v > 0 %} <span class="bar-mini" style="width:{{ (v / max_v * 100) }}%"></span>{% endif %}</td>
+      {% endfor %}</tr>
+    <tr><td>Pour / Contre / Abstention</td>
+      <td>{{ va.nb_pour | fint }} / {{ va.nb_contre | fint }} / {{ va.nb_abstention | fint }}</td>
+      <td>{{ vb.nb_pour | fint }} / {{ vb.nb_contre | fint }} / {{ vb.nb_abstention | fint }}</td>
+    </tr>
+    <tr><td>Discipline (alignement groupe)</td>
+      <td>{% if va.expressed %}<strong>{{ ((va.aligned or 0) / va.expressed * 100) | round(1) }}%</strong>{% else %}—{% endif %}</td>
+      <td>{% if vb.expressed %}<strong>{{ ((vb.aligned or 0) / vb.expressed * 100) | round(1) }}%</strong>{% else %}—{% endif %}</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+{% else %}
+<p class="muted">Choisissez deux députés pour démarrer la comparaison.</p>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,78 @@
+# ===========================================================
+# .gitignore — racine du projet 577deputes
+# ===========================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.pyc
+
+# --- Environnement / secrets ---
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+id_ecdsa*
+.secrets*
+*.service
+
+# --- Données lourdes / générées (NE JAMAIS COMMITTER) ---
+site/data/anqp.db
+site/data/anqp.db-*
+site/data/analytics.db
+site/data/analytics.db-*
+site/data/analyses_cache.pkl
+site/data/raw/
+*.tar.gz
+*.pkl
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Fichiers d'infrastructure / opérationnels (sensibles) ---
+INFRA-RECAP.txt
+google*.html
+
+# --- Outil de génération de l'image OG : entièrement local, pas dans le repo ---
+apercu-google/
+
+# --- Scripts opérationnels serveur : locaux uniquement (révèlent l'infra) ---
+scripts/backup_site.sh
+scripts/security_hardening.sh
+
+# --- Photos des députés : retéléchargées par le bootstrap, pas dans le repo ---
+site/src/anqp/web/static/photos/*.jpg
+!site/src/anqp/web/static/photos/_placeholder.svg
+
+# --- Docs internes / annexes (pas destinées à la publication) ---
+site/CHANGELOG.md
+site/decisions.md
+site/phase2-plan.md
+site/POSTGRES.md
+
+# --- Tests : non nécessaires au fonctionnement, exclus du repo public ---
+site/tests/
+
+# --- Guide d'installation perso (Windows / pour un proche) — local only ---
+site/LANCER-LE-SITE.txt
+
+# --- Dossiers locaux Claude Code / backups manuels ---
+.claude/
+.backup/
+
+# --- Éditeurs / OS ---
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db

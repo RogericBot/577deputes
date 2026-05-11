@@ -1,0 +1,221 @@
+{# ----- Open a chart in a centred modal -----
+   Renders a small "Voir le graphique" button carrying the data as JSON.
+   `items` must be a list of `{label, value, color?}` dicts.
+   `unit` is the suffix after each value (e.g. "questions", "%", "j").
+#}
+{% macro chart_button(items, title, subtitle='', unit='', label='Voir le graphique') -%}
+  {%- if items -%}
+  <button type="button" class="btn-chart"
+    data-chart='{{ items | tojson }}'
+    data-chart-title="{{ title }}"
+    {% if subtitle %}data-chart-subtitle="{{ subtitle }}"{% endif %}
+    {% if unit %}data-chart-unit="{{ unit }}"{% endif %}>
+    <svg class="btn-chart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="11"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
+    {{ label }}
+  </button>
+  {%- endif -%}
+{%- endmacro %}
+
+
+{# ----- Line chart export button -----
+   `series` : list of {name, values: [...], color?}
+   `x_keys` : list of x-axis labels (e.g. months)
+   Opens a high-res line chart in the modal, exportable in PNG.
+#}
+{% macro chart_button_line(series, x_keys, title, subtitle='', label='Voir le graphique') -%}
+  {%- if series and x_keys -%}
+  {%- set payload = {'series': series, 'x_keys': x_keys} -%}
+  <button type="button" class="btn-chart"
+    data-chart-line='{{ payload | tojson }}'
+    data-chart-title="{{ title }}"
+    {% if subtitle %}data-chart-subtitle="{{ subtitle }}"{% endif %}>
+    <svg class="btn-chart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="14 6 21 6 21 13"/></svg>
+    {{ label }}
+  </button>
+  {%- endif -%}
+{%- endmacro %}
+
+
+{# ----- Sub-navigation under "Textes" -----
+   `active` ∈ { 'textes', 'amendements', 'clusters' }
+#}
+{% macro texte_subnav(active='textes') -%}
+<nav class="subnav" aria-label="Sous-navigation textes">
+  <a href="/textes" {% if active == 'textes' %}class="active"{% endif %}>Tous les textes</a>
+  <a href="/amendements" {% if active == 'amendements' %}class="active"{% endif %}>Tous les amendements</a>
+  <a href="/clusters" {% if active == 'clusters' %}class="active"{% endif %}>Clusters quasi-identiques</a>
+</nav>
+{%- endmacro %}
+
+
+{# ----- Pagination control ----- #}
+{% macro pagination(result, base_url, filters) -%}
+  {%- set qs = [] -%}
+  {%- for k, v in filters.items() if v not in (None, '') and k != 'page' -%}{%- set _ = qs.append(k ~ '=' ~ v|urlencode) -%}{%- endfor -%}
+  {%- set base = base_url ~ '?' ~ qs|join('&') -%}
+  <nav class="pagination" aria-label="Pagination">
+    <span>{{ result.total | fint }} résultat{% if result.total > 1 %}s{% endif %} —
+      page {{ result.page }} / {{ result.pages }}</span>
+    <span class="pager">
+      {% if result.page > 1 %}
+        <a href="{{ base }}&page=1">«</a>
+        <a href="{{ base }}&page={{ result.page - 1 }}">‹ précédente</a>
+      {% endif %}
+      {% if result.page < result.pages %}
+        <a href="{{ base }}&page={{ result.page + 1 }}">suivante ›</a>
+        <a href="{{ base }}&page={{ result.pages }}">»</a>
+      {% endif %}
+    </span>
+  </nav>
+{%- endmacro %}
+
+
+{# ----- Group badge ----- #}
+{% macro group_badge(abrege, libelle, couleur, uid=None) -%}
+  {%- set bg = couleur or '#777' -%}
+  {%- if uid -%}
+    <a class="group-badge" href="/deputes?groupe_uid={{ uid }}" style="background:{{ bg }}" title="{{ libelle or '' }}">{{ abrege or '?' }}</a>
+  {%- else -%}
+    <span class="group-badge" style="background:{{ bg }}" title="{{ libelle or '' }}">{{ abrege or '?' }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+
+{# ----- Status pill ----- #}
+{% macro status_pill(statut) -%}
+  <span class="pill pill-{{ statut }}">{{ statut | statut }}</span>
+{%- endmacro %}
+
+
+{# ----- SVG horizontal bar chart -----
+   data is a list of {label, value, color?} dicts. Rendered as a clean SVG.
+#}
+{% macro hbar_chart(data, value_label='', max_label_len=55, width=720, bar_h=22, gap=4) -%}
+  {%- if not data -%}<p class="muted">Aucune donnée.</p>{%- else -%}
+    {%- set max_value = data | map(attribute='value') | reject('none') | list -%}
+    {%- set vmax = (max_value | max) if max_value else 1 -%}
+    <ul class="hbar-html" role="list" aria-label="Graphique en barres horizontales">
+      {%- for item in data -%}
+        {%- set v = (item.value or 0) -%}
+        {%- set pct = ((v / vmax) * 100) if vmax > 0 else 0 -%}
+        {%- set color = item.color or '#3b82f6' -%}
+        {%- set full_label = item.label or '' -%}
+        <li class="hbar-html-row" title="{{ full_label }} : {{ v | fint }}{% if value_label %} {{ value_label }}{% endif %}">
+          <span class="hbar-html-label" title="{{ full_label }}">{{ full_label | truncate(max_label_len) }}</span>
+          <span class="hbar-html-track">
+            <span class="hbar-html-fill" style="width: {{ pct }}%; background: {{ color }};"></span>
+          </span>
+          <span class="hbar-html-value">{{ v | fint }}{% if value_label %} {{ value_label }}{% endif %}</span>
+        </li>
+      {%- endfor -%}
+    </ul>
+  {%- endif -%}
+{%- endmacro %}
+
+
+{# ----- Donut chart -----
+   data is a list of {label, value, color?} dicts. Renders as an SVG
+   donut + a side legend. Idéal pour les "parts d'un total" (statuts
+   de dossiers, sorts d'amendements, etc.). Total = somme des values.
+#}
+{% macro donut_chart(data, value_label='', size=220, thickness=42) -%}
+  {%- if not data -%}<p class="muted">Aucune donnée.</p>{%- else -%}
+    {%- set total_ns = namespace(t=0) -%}
+    {%- for item in data -%}{%- set total_ns.t = total_ns.t + (item.value or 0) -%}{%- endfor -%}
+    {%- set total = total_ns.t -%}
+    {%- if total <= 0 -%}<p class="muted">Aucune donnée.</p>{%- else -%}
+      {%- set radius = (size / 2) - 2 -%}
+      {%- set inner_r = radius - thickness -%}
+      {%- set cx = size / 2 -%}
+      {%- set cy = size / 2 -%}
+      <div class="donut-wrap">
+        <svg class="donut-chart" viewBox="0 0 {{ size }} {{ size }}" width="{{ size }}" height="{{ size }}" role="img" aria-label="Diagramme circulaire">
+          {# Astuce : on superpose des cercles concentriques avec
+             stroke-dasharray pour matérialiser chaque segment, plutôt
+             que de calculer des arcs SVG (Jinja n'a pas sin/cos). #}
+          {%- set r = radius - thickness / 2 -%}
+          {%- set circumference = 2 * 3.14159265 * r -%}
+          <circle cx="{{ cx }}" cy="{{ cy }}" r="{{ r }}" fill="none" stroke="#f1f5f9" stroke-width="{{ thickness }}"/>
+          {%- set offset_ns = namespace(o=0) -%}
+          {%- for item in data -%}
+            {%- set v = (item.value or 0) -%}
+            {%- if v > 0 -%}
+              {%- set seg = (v / total) * circumference -%}
+              {%- set color = item.color or '#3b82f6' -%}
+              <circle cx="{{ cx }}" cy="{{ cy }}" r="{{ r }}"
+                      fill="none" stroke="{{ color }}"
+                      stroke-width="{{ thickness }}"
+                      stroke-dasharray="{{ '%.2f' % seg }} {{ '%.2f' % circumference }}"
+                      stroke-dashoffset="{{ '%.2f' % (-offset_ns.o) }}"
+                      transform="rotate(-90 {{ cx }} {{ cy }})">
+                <title>{{ item.label }} : {{ v | fint }}{% if value_label %} {{ value_label }}{% endif %} ({{ ((v / total) * 100) | round(1) }}%)</title>
+              </circle>
+              {%- set offset_ns.o = offset_ns.o + seg -%}
+            {%- endif -%}
+          {%- endfor -%}
+          <text x="{{ cx }}" y="{{ cy - 4 }}" text-anchor="middle" class="donut-total">{{ total | fint }}</text>
+          {%- if value_label -%}
+            <text x="{{ cx }}" y="{{ cy + 14 }}" text-anchor="middle" class="donut-unit">{{ value_label }}</text>
+          {%- endif -%}
+        </svg>
+        <ul class="donut-legend">
+          {%- for item in data -%}
+            {%- set v = (item.value or 0) -%}
+            {%- if v > 0 -%}
+              <li>
+                <span class="donut-swatch" style="background: {{ item.color or '#3b82f6' }}"></span>
+                <span class="donut-legend-label">{{ item.label }}</span>
+                <span class="donut-legend-value">{{ v | fint }} <span class="muted small">({{ ((v / total) * 100) | round(1) }}%)</span></span>
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ul>
+      </div>
+    {%- endif -%}
+  {%- endif -%}
+{%- endmacro %}
+
+
+{# ----- SVG line chart (one or multiple series) ----- #}
+{% macro line_chart(series, x_keys, width=860, height=260, padding=40) -%}
+  {%- if not series or not x_keys -%}<p class="muted">Aucune donnée.</p>{%- else -%}
+    {%- set all_values = [] -%}
+    {%- for s in series -%}{%- for v in s['values'] -%}{%- if v -%}{%- set _ = all_values.append(v) -%}{%- endif -%}{%- endfor -%}{%- endfor -%}
+    {%- set vmax = (all_values | max) if all_values else 1 -%}
+    {%- set inner_w = width - 2 * padding -%}
+    {%- set inner_h = height - 2 * padding -%}
+    {%- set step = (inner_w / ((x_keys|length - 1) if x_keys|length > 1 else 1)) -%}
+    <svg class="line-chart" viewBox="0 0 {{ width }} {{ height }}" width="100%" height="{{ height }}" role="img">
+      <line x1="{{ padding }}" y1="{{ height - padding }}" x2="{{ width - padding }}" y2="{{ height - padding }}" class="axis"/>
+      <line x1="{{ padding }}" y1="{{ padding }}" x2="{{ padding }}" y2="{{ height - padding }}" class="axis"/>
+      {%- for s in series -%}
+        {%- set color = s.color or '#3b82f6' -%}
+        {%- set pts = [] -%}
+        {%- for v in s['values'] -%}
+          {%- set x = padding + loop.index0 * step -%}
+          {%- set y = height - padding - ((v or 0) / vmax) * inner_h -%}
+          {%- set _ = pts.append('%.1f,%.1f' % (x, y)) -%}
+        {%- endfor -%}
+        <polyline points="{{ pts | join(' ') }}" fill="none" stroke="{{ color }}" stroke-width="2"/>
+        {%- for v in s['values'] -%}
+          {%- set x = padding + loop.index0 * step -%}
+          {%- set y = height - padding - ((v or 0) / vmax) * inner_h -%}
+          <circle cx="{{ x }}" cy="{{ y }}" r="3" fill="{{ color }}"/>
+        {%- endfor -%}
+      {%- endfor -%}
+      {%- for k in x_keys -%}
+        {%- set x = padding + loop.index0 * step -%}
+        {%- if loop.index0 % ((x_keys|length // 8) + 1) == 0 -%}
+          <text x="{{ x }}" y="{{ height - padding + 14 }}" class="axis-label" text-anchor="middle">{{ k }}</text>
+        {%- endif -%}
+      {%- endfor -%}
+      <text x="{{ padding }}" y="{{ padding - 8 }}" class="axis-label">max = {{ vmax | fint }}</text>
+      {# legend #}
+      {%- for s in series -%}
+        {%- set lx = padding + 80 + loop.index0 * 140 -%}
+        <rect x="{{ lx }}" y="{{ padding - 18 }}" width="12" height="12" fill="{{ s.color or '#3b82f6' }}" rx="2"/>
+        <text x="{{ lx + 18 }}" y="{{ padding - 8 }}" class="axis-label">{{ s.name }}</text>
+      {%- endfor -%}
+    </svg>
+  {%- endif -%}
+{%- endmacro %}

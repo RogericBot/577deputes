@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination, texte_subnav %}
+{% block title %}Amendements{% endblock %}
+{% block content %}
+
+{{ texte_subnav('amendements') }}
+
+<h1>Amendements — recherche transverse</h1>
+<p class="muted">{{ result.total | fint }} amendement{% if result.total > 1 %}s{% endif %} trouvé{% if result.total > 1 %}s{% endif %}. La recherche full-text porte sur le dispositif et l'exposé sommaire.</p>
+
+<form action="/amendements" method="get" class="filter-bar">
+  <input type="search" name="q" value="{{ filters.q }}" placeholder="Recherche full-text…">
+  <select name="groupe_uid">
+    <option value="">Tous groupes</option>
+    {% for g in groups %}
+      <option value="{{ g.uid }}" {% if filters.groupe_uid == g.uid %}selected{% endif %}>{{ g.libelle_abrege }} — {{ g.libelle }}</option>
+    {% endfor %}
+  </select>
+  <select name="sort_filter">
+    <option value="">Tout sort</option>
+    {% for v in ['Adopté','Rejeté','Retiré','Tombé','Irrecevable','Non soutenu','En traitement','Discuté'] %}
+      <option value="{{ v }}" {% if filters.sort_filter == v %}selected{% endif %}>{{ v }}</option>
+    {% endfor %}
+  </select>
+  <select name="examen">
+    <option value="">commission + séance</option>
+    <option value="commission" {% if filters.examen == 'commission' %}selected{% endif %}>commission</option>
+    <option value="seance" {% if filters.examen == 'seance' %}selected{% endif %}>séance</option>
+  </select>
+  <select name="sort">
+    <option value="date_depot_desc" {% if filters.sort == 'date_depot_desc' %}selected{% endif %}>Plus récent</option>
+    <option value="date_depot_asc" {% if filters.sort == 'date_depot_asc' %}selected{% endif %}>Plus ancien</option>
+    <option value="auteur_asc" {% if filters.sort == 'auteur_asc' %}selected{% endif %}>Auteur A→Z</option>
+  </select>
+  <button type="submit">Filtrer</button>
+  <a class="btn-link" href="/amendements">Réinitialiser</a>
+</form>
+
+{{ pagination(result, '/amendements', filters) }}
+
+<table class="data-table results">
+  <thead>
+    <tr>
+      <th>Texte</th>
+      <th>n°</th>
+      <th>Article</th>
+      <th>Auteur</th>
+      <th>Examen</th>
+      <th>Sort</th>
+      <th>Date</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for a in result.rows %}
+    <tr>
+      <td>
+        {% if a.dossier_uid %}<a href="/textes/{{ a.dossier_uid }}">{{ a.dossier_uid }}</a>{% else %}—{% endif %}
+      </td>
+      <td><a href="/amendements/{{ a.uid }}">{{ a.numero or '—' }}</a></td>
+      <td>{{ a.article_designation or '—' }}</td>
+      <td>
+        {% if a.auteur_uid %}<a href="/deputes/{{ a.auteur_uid }}">{{ a.auteur_nom_complet or a.auteur_uid }}</a>{% endif %}
+        {% if a.groupe_abrege %}<span class="group-badge" style="background:{{ a.groupe_couleur or '#777' }}">{{ a.groupe_abrege }}</span>{% endif %}
+      </td>
+      <td>{{ a.examen_type or '—' }}</td>
+      <td>{% if a.sort %}<span class="pill pill-sort-{{ a.sort | lower | replace(' ','-') }}">{{ a.sort }}</span>{% else %}—{% endif %}</td>
+      <td>{{ a.date_depot | fdate }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="empty">Aucun amendement avec ces filtres.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{{ pagination(result, '/amendements', filters) }}
+{% endblock %}

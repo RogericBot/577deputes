@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_pill, group_badge %}
+{% block title %}{{ q.type | qtype_long }} n°{{ q.numero or q.uid }}{% endblock %}
+{% block content %}
+
+<nav class="breadcrumb">
+  <a href="/questions">Questions</a> /
+  <span class="muted">{{ q.type | qtype_long }} n°{{ q.numero or q.uid }}</span>
+</nav>
+
+<article class="question-detail">
+  <header>
+    <p class="meta">
+      <span class="qtype qtype-{{ q.type | lower }}">{{ q.type | qtype_long }}</span>
+      <span>n° {{ q.numero or q.uid }}</span>
+      <span>{{ status_pill(q.statut) }}</span>
+      {% if q.source_url %}<a class="btn-link" href="{{ q.source_url }}" target="_blank" rel="noopener">Source officielle ↗</a>{% endif %}
+    </p>
+    <h1>{{ q.titre or q.rubrique or '(sans titre)' }}</h1>
+
+    <div class="grid grid-2">
+      <div>
+        <strong>Auteur :</strong>
+        {% if q.d_uid %}
+          <a href="/deputes/{{ q.d_uid }}">{{ q.d_nom or q.auteur_nom_complet }}</a>
+          {% if q.d_groupe %} — {{ q.d_groupe }}{% endif %}
+          {% if q.departement %} ({{ q.departement }}{% if q.circonscription %} · {{ q.circonscription }}ᵉ circ.{% endif %}){% endif %}
+        {% else %}
+          {{ q.auteur_nom_complet or q.auteur_uid or '—' }}
+        {% endif %}
+      </div>
+      <div><strong>Ministère interrogé :</strong> {{ q.ministere_interroge or q.ministere_interroge_court or '—' }}</div>
+      <div><strong>Ministère attributaire :</strong> {{ q.ministere_attributaire or q.ministere_attrib_court or '—' }}</div>
+      <div><strong>Rubrique :</strong> {{ q.rubrique or '—' }}{% if q.tete_analyse %} · <em>{{ q.tete_analyse }}</em>{% endif %}</div>
+      <div><strong>Date de la question :</strong> {{ q.date_question | fdate }}</div>
+      <div><strong>Date de la réponse :</strong> {{ q.date_reponse | fdate }}
+        {% if q.delai_reponse_jours is not none %}<span class="muted">({{ q.delai_reponse_jours }} jours)</span>{% endif %}
+      </div>
+    </div>
+  </header>
+
+  <section class="text-block">
+    <h2>Texte de la question</h2>
+    {% if q.texte_question %}
+      <div class="prose">{{ q.texte_question | safe_html }}</div>
+    {% else %}
+      <p class="muted">Texte de la question non publié dans la source.</p>
+    {% endif %}
+  </section>
+
+  <section class="text-block">
+    <h2>Réponse ministérielle</h2>
+    {% if q.texte_reponse %}
+      <div class="prose">{{ q.texte_reponse | safe_html }}</div>
+    {% else %}
+      <p class="muted">Aucune réponse ministérielle publiée à ce jour.</p>
+    {% endif %}
+  </section>
+
+  {% if seance_ctx %}
+  <section class="card">
+    <h2>Contexte de séance — Questions au Gouvernement</h2>
+    <p class="muted">
+      Séance du {{ seance_ctx.seance.date_seance | fdate }}
+      {% if seance_ctx.seance.quantieme %}({{ seance_ctx.seance.quantieme }}){% endif %}
+      — {{ seance_ctx.interventions | length }} questions posées dans cet ordre.
+      {% if seance_ctx.seance.compte_rendu_uid %}
+        <a href="https://www.assemblee-nationale.fr/dyn/{{ q.legislature or 17 }}/comptes-rendus/seance" target="_blank" rel="noopener">Compte-rendu officiel ↗</a>
+      {% endif %}
+    </p>
+    <ol class="seance-list">
+      {% for it in seance_ctx.interventions %}
+        {% set is_self = q.titre and (q.titre[:30].lower() in (it.sommaire2_titre or '').lower()
+                          or (it.sommaire2_titre or '')[:30].lower() in q.titre.lower()) %}
+        <li {% if is_self %}class="seance-current"{% endif %} value="{{ it.ordre }}">
+          <strong>{{ it.sommaire2_titre or '(titre manquant)' }}</strong>
+          {% if it.speakers_json %}
+          <div class="muted small">
+            {% for sp in it.speakers_json | from_json %}
+              {{ sp.label }}{% if not loop.last %} · {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
+  <details class="raw">
+    <summary>Données brutes (debug)</summary>
+    <pre>{{ q.raw_json }}</pre>
+  </details>
+</article>
+
+{% endblock %}

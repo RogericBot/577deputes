@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_pill, group_badge, hbar_chart %}
+{% block title %}Accueil{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>577députés — Activité parlementaire de la XVIIᵉ législature</h1>
+  <p class="muted">
+    Un explorateur local et complet des textes, amendements, scrutins et questions
+    de l'Assemblée nationale depuis juillet 2024, croisés avec les fiches
+    des {{ overview.counts.deputies | fint }} députés.
+  </p>
+  <form action="/questions" method="get" class="search-form">
+    <input type="search" name="q" placeholder="Rechercher dans les questions et réponses…" autofocus>
+    <button type="submit">Chercher</button>
+  </form>
+</section>
+
+{# À LA UNE : 3 trouvailles factuelles tirées des analyses #}
+{% if highlights %}
+<section class="highlights-row">
+  <h2 class="highlights-title">À la une — les chiffres qui frappent</h2>
+  <div class="grid grid-3 cards">
+    {% if highlights.templates.rate %}
+    <a class="card link highlight-card" href="/analyses?tab=templates">
+      <h3>Langue de bois mesurée</h3>
+      <p class="big" style="color: var(--bad);">{{ highlights.templates.rate }} %</p>
+      <p class="muted">
+        des réponses ministérielles sont des <strong>copies presque
+        exactes</strong> d'autres réponses. Le plus gros template est
+        réutilisé <strong>{{ highlights.templates.biggest_cluster.n_reponses }} fois</strong>.
+        <span class="muted small">→ Voir les détections</span>
+      </p>
+    </a>
+    {% endif %}
+    {% if highlights.strategic_absence %}
+    <a class="card link highlight-card" href="/analyses?tab=absenteisme">
+      <h3>Fuite des votes serrés</h3>
+      <p class="big" style="color: var(--warn);">+{{ highlights.strategic_absence.gap | round(0) | int }} pts</p>
+      <p class="muted">
+        d'écart de présence entre scrutins consensuels et clivants
+        pour <strong>{{ highlights.strategic_absence.nom_complet }}</strong>
+        ({{ highlights.strategic_absence.groupe_abrege }}). Plus le plus fort
+        de l'AN sur la 17ᵉ législature.
+        <span class="muted small">→ Voir le classement</span>
+      </p>
+    </a>
+    {% endif %}
+    {% if highlights.phantom_amendments %}
+    <a class="card link highlight-card" href="/analyses?tab=fantomes">
+      <h3>Amendements fantômes</h3>
+      <p class="big" style="color: var(--bad);">{{ highlights.phantom_amendments.pct_fantomes }} %</p>
+      <p class="muted">
+        des amendements déposés par <strong>{{ highlights.phantom_amendments.nom_complet }}</strong>
+        ({{ highlights.phantom_amendments.groupe_abrege }}) ne sont
+        <strong>jamais défendus en séance</strong> sur ses
+        {{ highlights.phantom_amendments.total | fint }} amendements.
+        <span class="muted small">→ Voir tous les classements</span>
+      </p>
+    </a>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{# Stats brutes : compteurs des 4 domaines (déplacés en seconde position) #}
+<section class="grid grid-4 cards headline-cards">
+  <a class="card link" href="/textes">
+    <h3>Textes</h3>
+    <p class="big">{{ legislative.counts.dossiers | fint }}</p>
+    <p class="muted">Projets, propositions, rapports…</p>
+  </a>
+  <a class="card link" href="/amendements">
+    <h3>Amendements</h3>
+    <p class="big">{{ legislative.counts.amendements | fint }}</p>
+    <p class="muted">Commission + séance, dernier dépôt {{ legislative.last_amd_date | fdate }}</p>
+  </a>
+  <a class="card link" href="/scrutins">
+    <h3>Scrutins publics</h3>
+    <p class="big">{{ legislative.counts.scrutins | fint }}</p>
+    <p class="muted">{{ legislative.counts.votes | fint }} votes nominatifs</p>
+  </a>
+  <a class="card link" href="/questions">
+    <h3>Questions</h3>
+    <p class="big">{{ overview.counts.questions | fint }}</p>
+    <p class="muted">Écrites, orales et au Gouvernement</p>
+  </a>
+</section>
+
+{# Second row : députés (avec contexte clair) #}
+<section class="grid grid-2 cards">
+  <a class="card link" href="/deputes">
+    <h3>Députés</h3>
+    {% set actifs = overview.counts.deputies - 48 if overview.counts.deputies > 577 else overview.counts.deputies %}
+    <p class="big">577</p>
+    <p class="muted">en fonction au {{ overview.max_question_date | fdate }} ·
+      {{ overview.counts.deputies - 577 if overview.counts.deputies > 577 else 0 }} ex-députés indexés
+      ({{ overview.counts.mandates | fint }} mandats)
+    </p>
+  </a>
+  <a class="card link" href="/dissidents">
+    <h3>Dissidents & disciplines</h3>
+    <p class="big">{{ discipline.avg_discipline | ffloat(1) }}<span class="big-unit">%</span></p>
+    <p class="muted">
+      Discipline moyenne tous groupes confondus
+      ({{ discipline.deputies_analysed | fint }} députés analysés ≥ 100 votes exprimés).
+      Survolez le classement pour voir les plus alignés et les plus dissidents.
+    </p>
+  </a>
+</section>
+
+<section>
+  <h2>Volumes par type</h2>
+  {% set chart_data = [] %}
+  {% for r in overall.questions %}
+    {% set _ = chart_data.append({'label': r.type | qtype_long, 'value': r.c, 'color': '#2563eb'}) %}
+  {% endfor %}
+  {{ hbar_chart(chart_data, value_label='questions', width=640) }}
+
+  <table class="data-table">
+    <thead>
+      <tr><th>Type</th><th>Volume</th><th>Avec réponse</th><th>Délai moyen (j)</th></tr>
+    </thead>
+    <tbody>
+    {% for r in overall.questions %}
+      <tr>
+        <td><strong>{{ r.type | qtype_long }}</strong></td>
+        <td>{{ r.c | fint }}</td>
+        <td>{{ r.answered | fint }} ({{ ((r.answered or 0) / (r.c or 1) * 100) | round(1) }}%)</td>
+        <td>{{ r.avg_delay | ffloat(1) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{# Bandeau "doublons d'amendements" — feature distinctive du site #}
+{% if cluster_overview and cluster_overview.total_clusters %}
+<section class="cluster-home-banner">
+  <div class="cluster-home-banner-head">
+    <div>
+      <h2>Détection automatique des doublons d'amendements</h2>
+      <p class="muted small">
+        Sur les {{ cluster_overview.total_amdts_global | fint }} amendements de la 17ᵉ législature,
+        <strong>{{ cluster_overview.total_amdts_clusterises | fint }}</strong>
+        ({{ cluster_overview.pct_clusterises | round(1) }}%) sont des quasi-doublons,
+        groupés en <strong>{{ cluster_overview.total_clusters | fint }} clusters</strong>
+        automatiquement classés en 4 catégories.
+      </p>
+    </div>
+    <a class="btn" href="/clusters">Explorer les doublons →</a>
+  </div>
+  <div class="cluster-home-banner-types">
+    {% for t in cluster_overview.by_type %}
+      <a href="/clusters?type={{ t.key }}"
+         class="cluster-home-banner-chip"
+         style="--type-color: {{ t.color }}"
+         title="{{ t.description }}">
+        <span class="cluster-home-banner-num" style="color: {{ t.color }}">{{ t.n_clusters | fint }}</span>
+        <span class="cluster-home-banner-label">{{ t.label }}</span>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <h2>Activité récente</h2>
+  <div class="grid grid-2">
+    <div>
+      <h3>Derniers textes actifs</h3>
+      <ul class="list">
+        {% for t in legislative.latest_dossiers %}
+          {% set tt = t.procedure_libelle | texte_type %}
+          <li>
+            <span class="type-pill type-{{ tt.key }}" title="{{ tt.long }}">{{ tt.label }}</span>
+            <a href="/textes/{{ t.uid }}"><strong>{{ t.titre | truncate(120) }}</strong></a>
+            <div class="meta">
+              {{ t.initiateur or '—' }} ·
+              <span class="pill pill-{{ t.statut }}">{{ t.statut | statut_dossier }}</span>
+              {% if t.statut | is_terminal and t.date_dernier_acte %}<span class="muted"> le {{ t.date_dernier_acte | fdate }}</span>{% else %} · {{ t.date_dernier_acte | fdate }}{% endif %}
+              · {{ t.nb_amendements_total | fint }} amdts
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div>
+      <h3>Derniers scrutins</h3>
+      <ul class="list">
+        {% for s in legislative.latest_scrutins %}
+          <li>
+            <a href="/scrutins/{{ s.uid }}"><strong>n°{{ s.numero }}</strong> — {{ (s.titre or '(sans titre)') | truncate(110) }}</a>
+            <div class="meta">
+              {{ s.date_scrutin | fdate }} ·
+              <span class="scrutin-sort scrutin-sort-{{ s.sort_code or 'autre' }}">{{ s.sort_code or '—' }}</span>
+              · <span class="vote-pour">{{ s.nb_pour }} pour</span>
+              / <span class="vote-contre">{{ s.nb_contre }} contre</span>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Dix dernières questions déposées</h2>
+  <ul class="list">
+    {% for q in latest %}
+      <li>
+        <a href="/questions/{{ q.uid }}">
+          <strong>{{ q.type | qtype_long }} n°{{ q.numero }}</strong> — {{ q.titre or '(sans titre)' }}
+        </a>
+        <div class="meta">
+          {{ q.auteur_nom_complet or '—' }} · {{ q.auteur_groupe_abrege or '' }} · {{ q.date_question | fdate }}
+          · {{ status_pill(q.statut) }}
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge, pagination, chart_button %}
+{% block title %}Dissidents{% endblock %}
+{% block content %}
+
+<h1>Mur des dissidents</h1>
+{% set chart_diss = [] %}
+{% for d in result.rows[:25] %}
+  {% set _ = chart_diss.append({'label': d.nom_complet ~ (' · ' ~ d.groupe_abrege if d.groupe_abrege else ''), 'value': (100 - d.discipline_pct) | round(1), 'color': d.groupe_couleur or '#dc2626'}) %}
+{% endfor %}
+<p>{{ chart_button(chart_diss, "Top 25 dissidents — 17ᵉ législature", subtitle="% de votes en désalignement avec la majorité du groupe (≥ " ~ result.min_votes ~ " votes exprimés)", unit="%") }}</p>
+<p class="muted">
+  Députés qui votent le plus souvent à l'écart de la majorité de leur groupe,
+  sur les <strong>scrutins publics nominatifs</strong> uniquement. Seuil minimum :
+  {{ result.min_votes }} votes exprimés (pour, contre, abstention).
+  Les votes à main levée n'apparaissent pas.
+</p>
+
+<form action="/dissidents" method="get" class="filter-bar">
+  <select name="groupe_uid">
+    <option value="">Tous les groupes</option>
+    {% for g in groups %}
+      <option value="{{ g.uid }}" {% if result.groupe_uid == g.uid %}selected{% endif %}>{{ g.libelle_abrege }} — {{ g.libelle }}</option>
+    {% endfor %}
+  </select>
+  <select name="min_votes">
+    {% for v in [50, 100, 250, 500] %}
+      <option value="{{ v }}" {% if result.min_votes == v %}selected{% endif %}>≥ {{ v }} votes</option>
+    {% endfor %}
+  </select>
+  <select name="sort" aria-label="Tri">
+    <option value="dissidence_desc" {% if result.sort == 'dissidence_desc' %}selected{% endif %}>Plus dissidents d'abord</option>
+    <option value="discipline_desc" {% if result.sort == 'discipline_desc' %}selected{% endif %}>Plus disciplinés d'abord</option>
+    <option value="votes_desc"      {% if result.sort == 'votes_desc'      %}selected{% endif %}>Plus de votes exprimés</option>
+    <option value="votes_asc"       {% if result.sort == 'votes_asc'       %}selected{% endif %}>Moins de votes exprimés</option>
+  </select>
+  <button type="submit">Filtrer</button>
+  <a class="btn-link" href="/dissidents">Réinitialiser</a>
+</form>
+
+{{ pagination(result, '/dissidents', {'min_votes': result.min_votes, 'groupe_uid': result.groupe_uid or '', 'sort': result.sort}) }}
+
+<div class="deputy-grid sharable" data-share-title="Députés les moins alignés sur leur groupe">
+  {% for d in result.rows %}
+    <a class="deputy-card dissident-card" href="/deputes/{{ d.uid }}">
+      <div class="deputy-photo" style="background-image:url('/photo/{{ d.uid }}')"></div>
+      <div class="deputy-info">
+        <h3>{{ d.nom_complet }}</h3>
+        <div class="meta">
+          {{ group_badge(d.groupe_abrege, d.groupe_libelle, d.groupe_couleur) }}
+          {% if d.departement %}<span>{{ d.departement }}{% if d.circonscription %} · {{ d.circonscription }}ᵉ{% endif %}</span>{% endif %}
+        </div>
+        <div class="dissident-metric">
+          <div class="dissident-pct">
+            <strong>{{ d.discipline_pct | round(1) }}%</strong>
+            <span class="muted small">discipline</span>
+          </div>
+          <div class="discipline-bar">
+            <div class="discipline-fill" style="width:{{ d.discipline_pct }}%; background:{{ d.groupe_couleur or '#3b82f6' }}"></div>
+          </div>
+          <div class="muted small">
+            {{ d.dissidences | fint }} dissidence{% if d.dissidences > 1 %}s{% endif %}
+            sur {{ d.expressed | fint }} votes
+          </div>
+        </div>
+      </div>
+    </a>
+  {% else %}
+    <p class="empty">Aucun député ne correspond à ces filtres.</p>
+  {% endfor %}
+</div>
+
+{{ pagination(result, '/dissidents', {'min_votes': result.min_votes, 'groupe_uid': result.groupe_uid or '', 'sort': result.sort}) }}
+{% endblock %}

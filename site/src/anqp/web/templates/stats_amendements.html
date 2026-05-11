@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import hbar_chart, donut_chart, group_badge, chart_button %}
+{% from "_palettes.html" import sort_amdt %}
+{% block title %}Stats — Amendements{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Amendements</nav>
+<h1>Activité d'amendement par groupe et auteur</h1>
+
+<section class="card">
+  <h2>Par sort (vue d'ensemble)</h2>
+  <p class="muted small">Répartition de tous les amendements déposés selon leur sort officiel.</p>
+  {% set ch = [] %}
+  {% for r in data.by_sort %}{% set _ = ch.append({'label': r.sort or '(non précisé)', 'value': r.c, 'color': sort_amdt(r.sort)}) %}{% endfor %}
+  {{ donut_chart(ch, value_label='amendements') }}
+  {{ chart_button(ch, "Amendements par sort — 17ᵉ législature", subtitle="Répartition globale des amendements déposés", unit="amendements") }}
+</section>
+
+{% set chart_groupe_total = [] %}
+{% for r in data.by_groupe %}{% set _ = chart_groupe_total.append({'label': (r.abrege or '?') ~ ' — ' ~ (r.libelle or ''), 'value': r.total, 'color': r.couleur or '#3b82f6'}) %}{% endfor %}
+{% set chart_groupe_adopt = [] %}
+{% for r in data.by_groupe %}{% if r.total %}{% set _ = chart_groupe_adopt.append({'label': r.abrege or '?', 'value': ((r.adoptes or 0) * 100.0 / r.total) | round(1), 'color': r.couleur or '#3b82f6'}) %}{% endif %}{% endfor %}
+{% set chart_top_auteurs = [] %}
+{% for r in data.top_auteurs %}{% set _ = chart_top_auteurs.append({'label': (r.nom or r.uid) ~ (' · ' ~ r.groupe_abrege if r.groupe_abrege else ''), 'value': r.total, 'color': r.groupe_couleur or '#4f46e5'}) %}{% endfor %}
+
+<section>
+  <h2>Par groupe : volume et taux d'adoption</h2>
+  {{ chart_button(chart_groupe_total, "Amendements déposés par groupe", subtitle="Volume brut, 17ᵉ législature", unit="amendements") }}
+  {{ chart_button(chart_groupe_adopt, "Taux d'adoption des amendements par groupe", subtitle="% d'amendements adoptés sur l'ensemble déposés", unit="%", label="Voir taux d'adoption") }}
+  <table class="data-table">
+    <thead><tr><th>Groupe</th><th>Déposés</th><th>Adoptés</th><th>Taux d'adoption</th></tr></thead>
+    <tbody>
+    {% for r in data.by_groupe %}
+      <tr>
+        <td>{{ group_badge(r.abrege, r.libelle, r.couleur) }} {{ r.libelle }}</td>
+        <td><a href="/amendements?groupe_uid={{ r.uid }}">{{ r.total | fint }}</a></td>
+        <td>{{ r.adoptes | fint }}</td>
+        <td>{% if r.total %}{{ ((r.adoptes or 0) / r.total * 100) | round(1) }}%{% else %}—{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Top 25 députés "amendementeurs"</h2>
+  {{ chart_button(chart_top_auteurs, "Top 25 députés — Amendements déposés", subtitle="Classement individuel sur la 17ᵉ législature", unit="amendements") }}
+  <table class="data-table">
+    <thead><tr><th></th><th>Député</th><th>Groupe</th><th>Déposés</th><th>Adoptés</th><th>Taux</th></tr></thead>
+    <tbody>
+    {% for r in data.top_auteurs %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><a href="/deputes/{{ r.uid }}">{{ r.nom or r.uid }}</a></td>
+        <td>{{ group_badge(r.groupe_abrege, '', r.groupe_couleur) }}</td>
+        <td><a href="/amendements?auteur_uid={{ r.uid }}">{{ r.total | fint }}</a></td>
+        <td>{{ r.adoptes | fint }}</td>
+        <td>{% if r.total %}{{ ((r.adoptes or 0) / r.total * 100) | round(1) }}%{% else %}—{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

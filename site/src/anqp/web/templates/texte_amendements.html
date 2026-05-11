@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination, texte_subnav %}
+{% block title %}Amendements — {{ d.titre | truncate(40) }}{% endblock %}
+{% block content %}
+
+{{ texte_subnav('amendements') }}
+<nav class="breadcrumb">
+  <a href="/textes">Textes</a> /
+  <a href="/textes/{{ d.uid }}">{{ d.titre | truncate(60) }}</a> /
+  <span class="muted">Amendements</span>
+</nav>
+
+<h1>Amendements du texte</h1>
+<p class="muted">{{ d.titre or '' | truncate(120) }} · {{ d.nb_amendements_total | fint }} déposés au total.</p>
+
+{# Article navigator — collapsible per article when no filter set #}
+{% if not filters.article and articles %}
+<details class="card" open>
+  <summary><strong>Naviguer par article ({{ articles | length }} articles concernés)</strong></summary>
+  <div class="article-grid">
+    {% for art in articles %}
+      <a class="article-chip" href="/textes/{{ d.uid }}/amendements?article={{ art.article_designation | urlencode }}">
+        {{ art.article_designation }}
+        <span class="muted">{{ art.c }}{% if art.adoptes %} · {{ art.adoptes }}A{% endif %}</span>
+      </a>
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
+
+<form action="/textes/{{ d.uid }}/amendements" method="get" class="filter-bar">
+  <input type="search" name="q" value="{{ filters.q }}" placeholder="Recherche dans le dispositif…">
+  <input type="text" name="article" value="{{ filters.article }}" placeholder="Article (ex: Article 1)" list="article-list">
+  <datalist id="article-list">
+    {% for a in articles %}<option value="{{ a.article_designation }}">{{ a.article_designation }} ({{ a.c }})</option>{% endfor %}
+  </datalist>
+  <select name="sort_filter">
+    <option value="">Tout sort</option>
+    {% for v in ['Adopté','Rejeté','Retiré','Tombé','Irrecevable','Non soutenu','En traitement','Discuté'] %}
+      <option value="{{ v }}" {% if filters.sort_filter == v %}selected{% endif %}>{{ v }}</option>
+    {% endfor %}
+  </select>
+  <select name="examen">
+    <option value="">commission + séance</option>
+    <option value="commission" {% if filters.examen == 'commission' %}selected{% endif %}>commission</option>
+    <option value="seance" {% if filters.examen == 'seance' %}selected{% endif %}>séance</option>
+  </select>
+  <select name="sort">
+    <option value="article_asc" {% if filters.sort == 'article_asc' %}selected{% endif %}>Par article (asc)</option>
+    <option value="numero_asc" {% if filters.sort == 'numero_asc' %}selected{% endif %}>Numéro (asc)</option>
+    <option value="date_depot_desc" {% if filters.sort == 'date_depot_desc' %}selected{% endif %}>Date dépôt (desc)</option>
+    <option value="auteur_asc" {% if filters.sort == 'auteur_asc' %}selected{% endif %}>Auteur</option>
+  </select>
+  <input type="hidden" name="page_size" value="{{ filters.page_size }}">
+  <button type="submit">Filtrer</button>
+  <a class="btn-link" href="/textes/{{ d.uid }}/amendements">Réinitialiser</a>
+</form>
+
+{{ pagination(result, '/textes/' ~ d.uid ~ '/amendements', filters) }}
+
+<table class="data-table results">
+  <thead>
+    <tr>
+      <th>n°</th>
+      <th>Article</th>
+      <th>Auteur</th>
+      <th>Examen</th>
+      <th>Sort</th>
+      <th>Date</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for a in result.rows %}
+    <tr>
+      <td>{{ a.numero or '—' }}</td>
+      <td>{{ a.article_designation or '—' }}</td>
+      <td>
+        {% if a.auteur_uid %}<a href="/deputes/{{ a.auteur_uid }}">{{ a.auteur_nom_complet or a.auteur_uid }}</a>{% else %}—{% endif %}
+        {% if a.groupe_abrege %}<span class="group-badge" style="background:{{ a.groupe_couleur or '#777' }}">{{ a.groupe_abrege }}</span>{% endif %}
+      </td>
+      <td>{{ a.examen_type or '—' }}</td>
+      <td>{% if a.sort %}<span class="pill pill-sort-{{ a.sort | lower | replace(' ','-') }}">{{ a.sort }}</span>{% else %}—{% endif %}</td>
+      <td>{{ a.date_depot | fdate }}</td>
+      <td><a href="/amendements/{{ a.uid }}">voir →</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="empty">Aucun amendement avec ces filtres.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{{ pagination(result, '/textes/' ~ d.uid ~ '/amendements', filters) }}
+
+{% endblock %}

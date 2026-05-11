@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import hbar_chart, chart_button %}
+{% block title %}Stats — Par groupe{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Par groupe</nav>
+<h1>Activité par groupe parlementaire</h1>
+<section class="sharable" data-share-title="Activité par groupe parlementaire — 17ᵉ législature">
+
+{% set chart_data = [] %}
+{% for r in rows %}{% set _ = chart_data.append({'label': r.libelle_abrege ~ ' — ' ~ r.libelle, 'value': r.questions_total, 'color': r.couleur or '#6b7280'}) %}{% endfor %}
+{{ hbar_chart(chart_data, value_label='questions') }}
+{{ chart_button(chart_data, "Questions parlementaires par groupe — 17ᵉ législature", subtitle="Nombre de questions posées par les députés de chaque groupe", unit="questions") }}
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Groupe</th>
+      <th>Députés</th>
+      <th>Questions</th>
+      <th>Avec réponse</th>
+      <th>Délai moyen (j)</th>
+      <th>Q. / député</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>
+        <span class="group-badge" style="background:{{ r.couleur or '#6b7280' }}">{{ r.libelle_abrege }}</span>
+        <a href="/deputes?groupe_uid={{ r.uid }}">{{ r.libelle }}</a>
+      </td>
+      <td>{{ r.deputies | fint }}</td>
+      <td><a href="/questions?groupe_uid={{ r.uid }}">{{ r.questions_total | fint }}</a></td>
+      <td>{{ r.questions_answered | fint }}{% if r.questions_total %} <span class="muted">({{ ((r.questions_answered or 0) / r.questions_total * 100) | round(1) }}%)</span>{% endif %}</td>
+      <td>{{ r.avg_delay | ffloat(1) }}</td>
+      <td>{% if r.deputies %}{{ ((r.questions_total or 0) / r.deputies) | round(1) }}{% else %}—{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</section>
+{% endblock %}

@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge, hbar_chart, status_pill, chart_button %}
+{% block title %}{{ d.nom_complet }}{% endblock %}
+{% block content %}
+
+<nav class="breadcrumb">
+  <a href="/deputes">Députés</a> /
+  <span class="muted">{{ d.nom_complet }}</span>
+</nav>
+
+<header class="deputy-header">
+  <div class="deputy-photo big" style="background-image:url('{{ d.photo_url }}')"></div>
+  <div>
+    <h1>{{ d.civilite or '' }} {{ d.nom_complet }}</h1>
+    <p class="muted">
+      {{ group_badge(d.groupe_abrege, d.groupe_libelle, d.groupe_couleur, uid=d.groupe_uid) }}
+      {% if d.parti_libelle %} · Parti : {{ d.parti_libelle }}{% endif %}
+    </p>
+    <ul class="kv">
+      <li><span>Circonscription</span> <strong>{{ d.departement }} ({{ d.departement_code }}) — {{ d.circonscription }}ᵉ</strong></li>
+      <li><span>Région</span> <strong>{{ d.region or '—' }}</strong></li>
+      <li><span>Profession</span> <strong>{{ d.profession or '—' }}</strong></li>
+      <li><span>Né(e) le</span> <strong>{{ d.date_naissance | fdate }}{% if d.lieu_naissance %} à {{ d.lieu_naissance }}{% endif %}</strong></li>
+      <li><span>Place hémicycle</span> <strong>{{ d.place_hemicycle or '—' }}</strong></li>
+      <li><span>Mandat</span> <strong>{{ d.date_debut_mandat | fdate }} → {{ d.date_fin_mandat | fdate if d.date_fin_mandat else 'en cours' }}</strong></li>
+      {% if d.email_an %}<li><span>Contact</span> <a href="mailto:{{ d.email_an }}">{{ d.email_an }}</a></li>{% endif %}
+      {% if d.uri_hatvp %}<li><span>HATVP</span> <a href="{{ d.uri_hatvp }}" target="_blank" rel="noopener">Déclaration ↗</a></li>{% endif %}
+      <li><span>Fiche AN</span> <a href="https://www.assemblee-nationale.fr/dyn/deputes/{{ d.uid }}" target="_blank" rel="noopener">{{ d.uid }} ↗</a></li>
+    </ul>
+    <p>
+      <a class="btn" href="/comparer?a={{ d.uid }}">Comparer avec un autre député →</a>
+    </p>
+  </div>
+</header>
+
+{% if timeline.months %}
+{% from "_macros.html" import line_chart, chart_button_line %}
+<section class="card sharable" data-share-title="{{ d.nom_complet }} — Activité au cours du mandat">
+  <h2>Activité au cours du mandat</h2>
+  <p class="muted small">Volume mensuel de questions, amendements et votes en scrutin nominatif.</p>
+  {% set ts_series = [
+    {'name': 'Questions',   'values': timeline.questions,   'color': '#2563eb'},
+    {'name': 'Amendements', 'values': timeline.amendements, 'color': '#7c3aed'},
+    {'name': 'Votes',       'values': timeline.votes,       'color': '#059669'},
+  ] %}
+  {{ line_chart(ts_series, timeline.months) }}
+  {{ chart_button_line(
+      ts_series, timeline.months,
+      d.nom_complet ~ " — Activité au cours du mandat",
+      subtitle="Volume mensuel : questions, amendements et votes en scrutin nominatif"
+  ) }}
+</section>
+{% endif %}
+
+<section class="grid grid-2">
+  <div class="card">
+    <h3>Activité — questions</h3>
+    {% set t = activity.totals %}
+    <ul class="kv">
+      <li><span>Total</span> <strong>{{ t.total | fint }}</strong></li>
+      <li><span>Avec réponse</span> <strong>{{ t.answered | fint }}{% if t.total %} ({{ ((t.answered or 0) / t.total * 100) | round(1) }}%){% endif %}</strong></li>
+      <li><span>Sans réponse</span> <strong>{{ t.unanswered | fint }}</strong></li>
+      <li><span>Délai moyen de réponse</span> <strong>{{ t.avg_delay | ffloat(1) }} j</strong></li>
+    </ul>
+    <p class="muted">Par type :
+      {% for r in activity.by_type %}{{ r.type | qtype_long }} : {{ r.c }}{% if not loop.last %}, {% endif %}{% endfor %}
+    </p>
+  </div>
+  <div class="card">
+    <h3>Top 10 ministères interpellés</h3>
+    {% set chart_min = [] %}
+    {% for r in activity.top_min %}{% set _ = chart_min.append({'label': r.m, 'value': r.c, 'color': '#10b981'}) %}{% endfor %}
+    {{ hbar_chart(chart_min, value_label='', width=520) }}
+    {{ chart_button(chart_min, d.nom_complet ~ " — Top 10 ministères interpellés", subtitle="Questions parlementaires posées à chaque ministère", unit="questions") }}
+  </div>
+</section>
+
+<section class="card">
+  <h3>Top 10 thèmes</h3>
+  {% set chart_themes = [] %}
+  {% for r in activity.top_themes %}{% set _ = chart_themes.append({'label': r.rubrique, 'value': r.c, 'color': '#f59e0b'}) %}{% endfor %}
+  {{ hbar_chart(chart_themes, width=720) }}
+  {{ chart_button(chart_themes, d.nom_complet ~ " — Top 10 thèmes traités", subtitle="Rubriques les plus fréquentes dans ses questions parlementaires", unit="questions") }}
+</section>
+
+<section>
+  <h2>25 dernières questions de ce député</h2>
+  <table class="data-table">
+    <thead><tr><th>Type</th><th>Date</th><th>Sujet</th><th>Statut</th></tr></thead>
+    <tbody>
+    {% for q in recent %}
+      <tr>
+        <td><span class="qtype qtype-{{ q.type | lower }}" title="{{ q.type | qtype_long }}">{{ q.type | qtype_short }}</span></td>
+        <td>{{ q.date_question | fdate }}</td>
+        <td><a href="/questions/{{ q.uid }}">{{ q.titre or '(sans titre)' }}</a></td>
+        <td>{{ status_pill(q.statut) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">Ce député n'a encore posé aucune question indexée.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p>
+    <a class="btn" href="/questions?auteur_uid={{ d.uid }}">Voir toutes les questions de ce député →</a>
+  </p>
+</section>
+
+<section class="card">
+  <h2>Activité législative <span class="muted">(textes, amendements, scrutins)</span></h2>
+  {% set lt = legislative.amd_totals %}
+  {% set vt = legislative.vote_totals %}
+  {% set al = legislative.alignment %}
+  <div class="grid grid-3">
+    <div>
+      <h3>Amendements déposés</h3>
+      <ul class="kv">
+        <li><span>Total</span> <strong>{{ lt.total | fint }}</strong></li>
+        <li><span>Adoptés</span> <strong>{{ lt.adoptes | fint }}{% if lt.total %} ({{ ((lt.adoptes or 0) / lt.total * 100) | round(1) }}%){% endif %}</strong></li>
+        <li><span>Rejetés</span> <strong>{{ lt.rejetes | fint }}</strong></li>
+        <li><span>Retirés</span> <strong>{{ lt.retires | fint }}</strong></li>
+        <li><span>En commission</span> <strong>{{ lt.commission | fint }}</strong></li>
+        <li><span>En séance</span> <strong>{{ lt.seance | fint }}</strong></li>
+      </ul>
+      {% if lt.total %}
+        <p><a class="btn" href="/amendements?auteur_uid={{ d.uid }}">Voir tous ses amendements →</a></p>
+      {% endif %}
+    </div>
+    <div>
+      <h3>Participation aux scrutins publics</h3>
+      <ul class="kv">
+        <li><span>Scrutins publics totaux (L17)</span> <strong>{{ legislative.nb_scrutins_total | fint }}</strong></li>
+        <li><span>Votes individuels enregistrés</span> <strong>{{ vt.total | fint }}</strong></li>
+        <li><span>Pour / Contre / Abst.</span> <strong>{{ vt.pour | fint }} / {{ vt.contre | fint }} / {{ vt.abstention | fint }}</strong></li>
+        <li><span>Non-votant</span> <strong class="muted">{{ vt.non_votant | fint }}</strong></li>
+      </ul>
+      <p class="muted small"><strong>Note :</strong> les votes à main levée ne sont pas tracés. Les « absences » ici ne représentent que les scrutins publics nominatifs où le député n'a pas voté.</p>
+    </div>
+    <div>
+      <h3>Discipline de groupe</h3>
+      {% if al and al.expressed %}
+        {% set pct = (al.aligned or 0) / al.expressed * 100 %}
+        <p class="big">{{ pct | round(1) }}%</p>
+        <p class="muted">{{ al.aligned | fint }} votes alignés sur la majorité de son groupe sur {{ al.expressed | fint }} votes exprimés.</p>
+        <div class="discipline-bar"><div class="discipline-fill" style="width:{{ pct }}%; background:{{ d.groupe_couleur or '#3b82f6' }}"></div></div>
+      {% else %}
+        <p class="muted">Pas assez de votes publics pour calculer cette métrique.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if legislative.amd_top_dossiers %}
+    <h3 style="margin-top:24px">Textes les plus amendés par ce député</h3>
+    <ul class="list">
+    {% for r in legislative.amd_top_dossiers %}
+      <li>
+        {% if r.uid %}<a href="/textes/{{ r.uid }}">{{ r.titre or r.uid | truncate(120) }}</a>{% else %}<span class="muted">(texte non rattaché)</span>{% endif %}
+        — {{ r.c | fint }} amendement{% if r.c > 1 %}s{% endif %}
+        {% if r.adoptes %}<span class="muted">· {{ r.adoptes }} adopté{% if r.adoptes > 1 %}s{% endif %}</span>{% endif %}
+      </li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Mandats et appartenances</h2>
+  <table class="data-table">
+    <thead><tr><th>Type</th><th>Organe</th><th>Qualité</th><th>Début</th><th>Fin</th></tr></thead>
+    <tbody>
+    {% for m in mandates %}
+      <tr>
+        <td>{{ m.type_organe }}</td>
+        <td>{{ m.organe_libelle or m.organe_uid }}</td>
+        <td>{{ m.qualite or '—' }}</td>
+        <td>{{ m.date_debut | fdate }}</td>
+        <td>{{ m.date_fin | fdate if m.date_fin else 'en cours' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}

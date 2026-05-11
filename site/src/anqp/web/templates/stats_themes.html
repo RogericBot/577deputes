@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import hbar_chart, chart_button %}
+{% block title %}Stats — Thèmes{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Thèmes</nav>
+<h1>Top thèmes / rubriques</h1>
+
+{% set chart_data = [] %}
+{% for r in rows %}{% set _ = chart_data.append({'label': r.rubrique, 'value': r.questions_total, 'color': '#7c3aed'}) %}{% endfor %}
+{{ hbar_chart(chart_data, value_label='questions') }}
+{{ chart_button(chart_data, "Top thèmes traités par les députés", subtitle="Rubriques les plus fréquentes dans les questions parlementaires", unit="questions") }}
+
+<table class="data-table">
+  <thead><tr><th>Thème</th><th>Questions</th><th>Avec réponse</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><a href="/questions?rubrique={{ r.rubrique | urlencode }}">{{ r.rubrique }}</a></td>
+      <td>{{ r.questions_total | fint }}</td>
+      <td>{{ r.questions_answered | fint }}{% if r.questions_total %} <span class="muted">({{ ((r.questions_answered or 0) / r.questions_total * 100) | round(1) }}%)</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

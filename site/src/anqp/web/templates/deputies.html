@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination, group_badge %}
+{% block title %}Députés{% endblock %}
+{% block content %}
+
+<h1>Députés — 17ᵉ législature</h1>
+<p class="muted">{{ result.total | fint }} député{% if result.total > 1 %}s{% endif %} {% if filters.is_active == 1 %}actuellement en fonction{% else %}au total{% endif %}.</p>
+
+<form action="/deputes" method="get" class="filter-bar">
+  <input type="search" name="q" value="{{ filters.q }}" placeholder="Nom, prénom…">
+  <select name="groupe_uid">
+    <option value="">Tous groupes</option>
+    {% for g in facets.groups %}
+      <option value="{{ g.uid }}" {% if filters.groupe_uid == g.uid %}selected{% endif %}>{{ g.libelle_abrege }} — {{ g.libelle }}</option>
+    {% endfor %}
+  </select>
+  <select name="departement">
+    <option value="">Tous départements</option>
+    {% for d in facets.departements %}
+      <option value="{{ d.code }}" {% if filters.departement == d.code %}selected{% endif %}>{{ d.code }} — {{ d.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="sort">
+    <option value="nom_asc" {% if filters.sort == 'nom_asc' %}selected{% endif %}>Nom (A→Z)</option>
+    <option value="groupe" {% if filters.sort == 'groupe' %}selected{% endif %}>Par groupe</option>
+    <option value="departement" {% if filters.sort == 'departement' %}selected{% endif %}>Par département</option>
+    <option value="questions_desc" {% if filters.sort == 'questions_desc' %}selected{% endif %}>Plus de questions</option>
+  </select>
+  <select name="is_active" aria-label="Statut mandat">
+    <option value="1" {% if filters.is_active == 1 %}selected{% endif %}>En fonction</option>
+    <option value="0" {% if filters.is_active == 0 %}selected{% endif %}>Anciens</option>
+    <option value="" {% if filters.is_active is none %}selected{% endif %}>Tous</option>
+  </select>
+  <input type="hidden" name="page_size" value="{{ filters.page_size }}">
+  <button type="submit">Filtrer</button>
+  <a class="btn-link" href="/deputes">Réinitialiser</a>
+</form>
+
+{{ pagination(result, '/deputes', filters) }}
+
+<div class="deputy-grid">
+  {% for d in result.rows %}
+    <a class="deputy-card" href="/deputes/{{ d.uid }}">
+      <div class="deputy-photo" style="background-image:url('{{ d.photo_url }}')"></div>
+      <div class="deputy-info">
+        <h3>{{ d.nom_complet }}</h3>
+        <div class="meta">
+          {{ group_badge(d.groupe_abrege, d.groupe_libelle, d.groupe_couleur) }}
+          {% if d.departement %} <span>{{ d.departement_code }}{% if d.circonscription %} · {{ d.circonscription }}ᵉ{% endif %}</span>{% endif %}
+        </div>
+        <div class="muted">{{ d.qcount | fint }} question{% if d.qcount > 1 %}s{% endif %}</div>
+      </div>
+    </a>
+  {% else %}
+    <p class="empty">Aucun député ne correspond à ces filtres.</p>
+  {% endfor %}
+</div>
+
+{{ pagination(result, '/deputes', filters) }}
+
+{% endblock %}

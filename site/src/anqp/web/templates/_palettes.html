@@ -1,0 +1,83 @@
+{# ====================================================================
+   Palettes centralisées — utilisées par tous les graphiques du site
+   pour garantir qu'un même statut/sort/type ait toujours la même couleur.
+
+   Importer dans un template :
+       {% from "_palettes.html" import sort_amdt, statut_dossier_color, qtype_color %}
+   Puis :
+       {% set color = sort_amdt(row.sort) %}
+   ==================================================================== #}
+
+{# Sort des amendements ----------------------------------------------- #}
+{% macro sort_amdt(sort) -%}
+  {%- if sort == 'Adopté' -%}#15803d
+  {%- elif sort == 'Rejeté' -%}#b91c1c
+  {%- elif sort == 'Retiré' -%}#6b7280
+  {%- elif sort == 'Tombé' -%}#a855f7
+  {%- elif sort == 'Irrecevable' -%}#f59e0b
+  {%- elif sort == 'Non soutenu' -%}#94a3b8
+  {%- elif sort == 'En traitement' -%}#3b82f6
+  {%- elif sort == 'Discuté' -%}#22c55e
+  {%- else -%}#94a3b8
+  {%- endif -%}
+{%- endmacro %}
+
+{# Statut d'un dossier législatif ------------------------------------- #}
+{% macro statut_dossier_color(statut) -%}
+  {%- if statut == 'en_cours' -%}#0ea5e9
+  {%- elif statut == 'adopte' or statut == 'promulgue' -%}#15803d
+  {%- elif statut == 'rejete' -%}#dc2626
+  {%- elif statut == 'retire' -%}#f59e0b
+  {%- elif statut == 'caduc' -%}#6b7280
+  {%- else -%}#94a3b8
+  {%- endif -%}
+{%- endmacro %}
+
+{# Type de question --------------------------------------------------- #}
+{% macro qtype_color(qtype) -%}
+  {%- if qtype == 'QE' -%}#2563eb
+  {%- elif qtype == 'QOSD' -%}#10b981
+  {%- elif qtype == 'QG' or qtype == 'QAG' -%}#f59e0b
+  {%- else -%}#6b7280
+  {%- endif -%}
+{%- endmacro %}
+
+{# Initiateur d'un texte législatif ----------------------------------- #}
+{% macro initiateur_color(initiateur_type) -%}
+  {%- if initiateur_type == 'gouvernement' -%}#1e40af
+  {%- elif initiateur_type == 'parlementaire' -%}#5b21b6
+  {%- elif initiateur_type == 'senat' -%}#0e7490
+  {%- else -%}#6b7280
+  {%- endif -%}
+{%- endmacro %}
+
+{# Type de texte (PJL/PPL/Résolution/Rapport/Autre) ------------------- #}
+{% macro texte_type_color(key) -%}
+  {%- if key == 'pjl' -%}#1e40af
+  {%- elif key == 'ppl' -%}#5b21b6
+  {%- elif key == 'resolution' -%}#9a3412
+  {%- elif key == 'rapport' -%}#065f46
+  {%- else -%}#475569
+  {%- endif -%}
+{%- endmacro %}
+
+{# Position de vote (pour/contre/abstention/non-votant) --------------- #}
+{% macro vote_color(position) -%}
+  {%- if position == 'pour' -%}#15803d
+  {%- elif position == 'contre' -%}#dc2626
+  {%- elif position == 'abstention' -%}#f59e0b
+  {%- elif position == 'non_votant' or position == 'absent' -%}#94a3b8
+  {%- else -%}#6b7280
+  {%- endif -%}
+{%- endmacro %}
+
+{# Catégories génériques pour les charts qui n'ont pas de palette
+   sémantique (ex: top thèmes, top auteurs). 12 teintes contrastées. #}
+{% set _GENERIC_PALETTE = [
+  '#4f46e5', '#7c3aed', '#db2777', '#f59e0b',
+  '#10b981', '#06b6d4', '#3b82f6', '#a855f7',
+  '#ef4444', '#84cc16', '#f97316', '#0891b2'
+] %}
+{% macro generic(index) -%}
+  {{ _GENERIC_PALETTE[index % (_GENERIC_PALETTE | length)] }}
+{%- endmacro %}

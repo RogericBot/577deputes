@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import group_badge, chart_button %}
+{% block title %}Stats — Scrutins{% endblock %}
+{% block content %}
+<nav class="breadcrumb"><a href="/stats">Stats</a> / Scrutins</nav>
+<h1>Discipline des groupes & participation</h1>
+<p class="muted">Calculs basés sur les <strong>{{ data.nb_scrutins_total | fint }} scrutins publics nominatifs</strong> de la 17ᵉ législature. Les votes à main levée n'apparaissent pas et ne sont jamais inférés.</p>
+
+{% set chart_disc = [] %}
+{% for r in data.discipline %}{% if r.expressed %}{% set _ = chart_disc.append({'label': (r.abrege or '?') ~ ' — ' ~ (r.libelle or ''), 'value': ((r.aligned or 0) * 100.0 / r.expressed) | round(1), 'color': r.couleur or '#4f46e5'}) %}{% endif %}{% endfor %}
+{% set chart_part = [] %}
+{% for r in data.top_participants %}{% set _ = chart_part.append({'label': r.nom_complet ~ (' · ' ~ r.groupe_abrege if r.groupe_abrege else ''), 'value': r.expressed, 'color': r.groupe_couleur or '#4f46e5'}) %}{% endfor %}
+
+<section class="sharable" data-share-title="Discipline interne par groupe — Scrutins publics 17ᵉ lég.">
+  <h2>Discipline interne par groupe</h2>
+  {{ chart_button(chart_disc, "Discipline interne par groupe", subtitle="% de votes alignés sur la majorité du groupe (scrutins publics nominatifs)", unit="%") }}
+  <p class="muted small">Ratio de votes alignés sur la position majoritaire du groupe, calculé sur l'ensemble des votes exprimés (pour / contre / abstention) des membres du groupe sur tous les scrutins.</p>
+  <table class="data-table">
+    <thead><tr><th>Groupe</th><th>Votes exprimés</th><th>Alignés</th><th>Discipline</th></tr></thead>
+    <tbody>
+    {% for r in data.discipline %}
+      <tr>
+        <td>{{ group_badge(r.abrege, r.libelle, r.couleur) }} {{ r.libelle }}</td>
+        <td>{{ r.expressed | fint }}</td>
+        <td>{{ r.aligned | fint }}</td>
+        <td>
+          {% if r.expressed %}
+            {% set pct = (r.aligned or 0) / r.expressed * 100 %}
+            <strong>{{ pct | round(1) }}%</strong>
+            <div class="discipline-bar"><div class="discipline-fill" style="width:{{ pct }}%; background:{{ r.couleur or '#3b82f6' }}"></div></div>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Top 25 députés les plus présents en scrutin public</h2>
+  {{ chart_button(chart_part, "Top 25 — Présents en scrutin public", subtitle="Votes exprimés (pour / contre / abstention) par député", unit="votes") }}
+  <table class="data-table">
+    <thead><tr><th></th><th>Député</th><th>Groupe</th><th>Votes exprimés</th><th>Pour / Contre / Abst.</th></tr></thead>
+    <tbody>
+    {% for r in data.top_participants %}
+      <tr>
+        <td><div class="thumb" style="background-image:url('{{ r.photo_url }}')"></div></td>
+        <td><a href="/deputes/{{ r.uid }}">{{ r.nom_complet }}</a></td>
+        <td>{{ group_badge(r.groupe_abrege, '', r.groupe_couleur) }}</td>
+        <td>{{ r.expressed | fint }} <span class="muted">/ {{ data.nb_scrutins_total | fint }}</span></td>
+        <td>{{ r.pour | fint }} / {{ r.contre | fint }} / {{ r.abstention | fint }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
