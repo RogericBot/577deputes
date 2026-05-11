@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import re
 import sqlite3
 import time
@@ -298,10 +299,34 @@ templates.env.filters["ffloat"] = _format_float
 templates.env.filters["truncate_html"] = _truncate_html
 templates.env.filters["statut"] = _statut_label
 templates.env.filters["qtype_long"] = _qtype_long
+def _initiateur_kind(procedure_libelle: str | None) -> str:
+    """Vrai type d'initiateur déduit du type de texte.
+
+    Le champ `dossiers.initiateur_type` de la source est peu fiable
+    (tous les PJL y sont marqués "parlementaire"). On le re-déduit ici :
+      - Projet de loi          → Gouvernement (par définition constitutionnelle)
+      - Proposition de loi     → Parlementaire
+      - Proposition de résolution → Parlementaire
+      - Rapport / mission      → Parlementaire
+      - autre / inconnu        → on renvoie le libellé brut, ou « — »
+    """
+    p = (procedure_libelle or "").strip().lower()
+    if p.startswith("projet de loi") or p.startswith("projet de ratification"):
+        return "Gouvernement"
+    if p.startswith("proposition de loi"):
+        return "Parlementaire"
+    if p.startswith("proposition de résolution") or p.startswith("proposition de resolution"):
+        return "Parlementaire"
+    if p.startswith("rapport") or p.startswith("mission") or "enquête" in p or "enquete" in p:
+        return "Parlementaire"
+    return procedure_libelle or "—"
+
+
 templates.env.filters["qtype_short"] = _qtype_short
 templates.env.filters["statut_dossier"] = _statut_dossier
 templates.env.filters["is_terminal"] = _is_statut_terminal
 templates.env.filters["texte_type"] = _texte_type
+templates.env.filters["initiateur_kind"] = _initiateur_kind
 
 
 def _from_json(value):
@@ -407,7 +432,11 @@ def get_conn() -> sqlite3.Connection:
 # ---------------------------------------------------------------------
 # SEO — robots.txt + sitemap.xml
 # ---------------------------------------------------------------------
-SITE_BASE_URL = "https://577deputes.fr"
+# Base URL publique du site. Override via ANQP_SITE_BASE_URL pour les
+# forks/instances hébergées ailleurs (sinon les balises canonical /
+# og:url / sitemap pointeraient toutes vers 577deputes.fr).
+SITE_BASE_URL = os.environ.get("ANQP_SITE_BASE_URL", "https://577deputes.fr").rstrip("/")
+templates.env.globals["site_base_url"] = SITE_BASE_URL
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -415,7 +444,11 @@ def robots_txt():
     return (
         "User-agent: *\n"
         "Allow: /\n"
+        "Allow: /api/docs\n"
+        "Allow: /api/redoc\n"
+        "Allow: /api/openapi.json\n"
         "Disallow: /api/\n"
+        "Disallow: /admin/\n"
         "Disallow: /legislature/\n"
         "\n"
         f"Sitemap: {SITE_BASE_URL}/sitemap.xml\n"
@@ -883,10 +916,10 @@ def security_txt():
     """RFC 9116 — point de contact pour disclosure responsable."""
     return (
         "Contact: mailto:martinez-eric@hotmail.fr\n"
-        "Contact: https://577deputes.fr/mentions-legales\n"
+        f"Contact: {SITE_BASE_URL}/mentions-legales\n"
         "Expires: 2027-12-31T23:59:59Z\n"
         "Preferred-Languages: fr, en\n"
-        "Canonical: https://577deputes.fr/.well-known/security.txt\n"
+        f"Canonical: {SITE_BASE_URL}/.well-known/security.txt\n"
     )
 
 
@@ -1290,6 +1323,7 @@ def about_page(request: Request, conn: sqlite3.Connection = Depends(get_conn)):
 
 
 @app.get("/clusters", response_class=HTMLResponse)
+@app.get("/doublons", response_class=HTMLResponse, include_in_schema=False)
 def clusters_page(
     request: Request, page: int = 1, type: str | None = None,
     conn: sqlite3.Connection = Depends(get_conn),

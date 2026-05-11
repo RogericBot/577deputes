@@ -17,7 +17,7 @@
       {% endif %}
       <span class="muted">·</span>
       <span class="muted">Initiateur :</span> <strong>{{ d.initiateur or '—' }}</strong>
-      <span class="muted">·</span> <em>{{ d.initiateur_type }}</em>
+      <span class="muted">·</span> <em>{{ d.procedure_libelle | initiateur_kind }}</em>
       {% if d.source_url %}
         <a class="btn-link" href="{{ d.source_url }}" target="_blank" rel="noopener">Dossier officiel ↗</a>
       {% endif %}

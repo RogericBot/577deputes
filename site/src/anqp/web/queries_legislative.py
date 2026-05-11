@@ -61,8 +61,21 @@ def list_dossiers(
         where.append("d.statut = ?")
         params.append(statut)
     if initiateur_type:
-        where.append("d.initiateur_type = ?")
-        params.append(initiateur_type)
+        # On filtre sur le TYPE DE TEXTE (procedure_libelle) plutôt que
+        # sur d.initiateur_type qui est mal peuplé dans la source
+        # (tous les projets de loi y sont marqués "parlementaire").
+        if initiateur_type == "gouvernement":
+            where.append("LOWER(d.procedure_libelle) LIKE 'projet de loi%'")
+        elif initiateur_type == "parlementaire":
+            where.append(
+                "(LOWER(d.procedure_libelle) LIKE 'proposition%' "
+                " OR LOWER(d.procedure_libelle) LIKE 'rapport%' "
+                " OR LOWER(d.procedure_libelle) LIKE 'mission%')"
+            )
+        else:
+            # valeur héritée éventuelle : on tente quand même l'ancien champ
+            where.append("d.initiateur_type = ?")
+            params.append(initiateur_type)
     if only_active:
         where.append("d.statut IN ('en_cours')")
 
@@ -395,8 +408,8 @@ def list_scrutins(
         f"""
         SELECT s.uid, s.numero, s.date_scrutin, s.titre, s.objet,
                s.sort_code, s.sort_libelle, s.nb_pour, s.nb_contre,
-               s.nb_abstentions, s.nb_non_votants, s.dossier_uid,
-               s.source_url, doss.titre AS dossier_titre
+               s.nb_abstentions, s.nb_non_votants, s.nombre_votants,
+               s.dossier_uid, s.source_url, doss.titre AS dossier_titre
           FROM scrutins s
           LEFT JOIN dossiers doss ON doss.uid = s.dossier_uid
           {where_sql}
@@ -555,8 +568,18 @@ def stats_textes_overview(conn: sqlite3.Connection) -> dict[str, Any]:
         "GROUP BY statut ORDER BY c DESC",
         leg,
     ).fetchall()
+    # Type d'initiateur déduit du type de texte (procedure_libelle), car
+    # le champ initiateur_type de la source est faux (tous les PJL marqués
+    # "parlementaire").
     by_initiateur = conn.execute(
-        "SELECT initiateur_type, COUNT(*) AS c, "
+        "SELECT CASE "
+        "         WHEN LOWER(procedure_libelle) LIKE 'projet de loi%' "
+        "           OR LOWER(procedure_libelle) LIKE 'projet de ratification%' THEN 'gouvernement' "
+        "         WHEN LOWER(procedure_libelle) LIKE 'proposition%' "
+        "           OR LOWER(procedure_libelle) LIKE 'rapport%' "
+        "           OR LOWER(procedure_libelle) LIKE 'mission%' THEN 'parlementaire' "
+        "         ELSE 'autre' END AS initiateur_type, "
+        "       COUNT(*) AS c, "
         "       SUM(CASE WHEN statut IN ('adopte','promulgue') THEN 1 ELSE 0 END) AS adoptes, "
         "       SUM(CASE WHEN statut = 'rejete' THEN 1 ELSE 0 END) AS rejetes "
         "  FROM dossiers WHERE legislature = ? "
@@ -669,10 +692,14 @@ def stats_scrutins_overview(conn: sqlite3.Connection) -> dict[str, Any]:
 # TOPS — 8 classements taillés pour le partage social.
 # =====================================================================
 def tops_overview(conn: sqlite3.Connection, limit: int = 10) -> dict[str, Any]:
-    """Eight ready-to-share top-N rankings."""
+    """Ready-to-share top-N rankings (no implied hierarchy between them)."""
     leg = (current_legislature(),)
 
-    # 1. Députés les plus actifs (cumul questions + amendts).
+    # Députés les plus actifs (cumul questions + amendts + votes exprimés).
+    # ⚠️ Ce cumul est mécaniquement dominé par la présence en scrutin
+    # (les votes exprimés sont >> aux questions/amendements). Les 3 sous-
+    # classements ci-dessous (questions seules / amendements seuls /
+    # présence) donnent une vision moins biaisée.
     deputes_actifs = conn.execute(
         f"""
         SELECT d.uid, d.nom_complet, d.groupe_abrege, d.groupe_couleur, d.photo_url,
@@ -685,6 +712,33 @@ def tops_overview(conn: sqlite3.Connection, limit: int = 10) -> dict[str, Any]:
          LIMIT ?
         """,
         (current_legislature(), limit),
+    ).fetchall()
+
+    # 1b. Top députés par QUESTIONS posées (seules).
+    deputes_top_questions = conn.execute(
+        f"""
+        SELECT d.uid, d.nom_complet, d.groupe_abrege, d.groupe_couleur,
+               COUNT(q.uid) AS n_q
+          FROM deputies d
+          JOIN questions q ON q.auteur_uid = d.uid
+         WHERE d.is_active = 1 AND d.legislature = ?
+         GROUP BY d.uid
+         ORDER BY n_q DESC LIMIT ?
+        """,
+        (current_legislature(), limit),
+    ).fetchall()
+
+    # 1c. Top députés par AMENDEMENTS déposés (seuls).
+    deputes_top_amendements = conn.execute(
+        f"""
+        SELECT d.uid, d.nom_complet, d.groupe_abrege, d.groupe_couleur,
+               c.total AS n_a
+          FROM deputies d
+          JOIN deputy_amd_cache c ON c.acteur_uid = d.uid
+         WHERE d.is_active = 1 AND c.total > 0
+         ORDER BY n_a DESC LIMIT ?
+        """,
+        (limit,),
     ).fetchall()
 
     # 2. 10 députés les plus présents en scrutin public.
@@ -700,21 +754,7 @@ def tops_overview(conn: sqlite3.Connection, limit: int = 10) -> dict[str, Any]:
         (limit,),
     ).fetchall()
 
-    # 3. 10 amendements les plus cosignés.
-    amdts_cosignes = conn.execute(
-        f"""
-        SELECT a.uid, a.numero, a.dossier_uid, a.article_designation,
-               a.auteur_nom_complet, a.groupe_abrege, a.cosignataires_count,
-               doss.titre AS dossier_titre
-          FROM amendements a
-          LEFT JOIN dossiers doss ON doss.uid = a.dossier_uid
-         WHERE a.legislature = ?
-         ORDER BY a.cosignataires_count DESC LIMIT ?
-        """,
-        (current_legislature(), limit),
-    ).fetchall()
-
-    # 4. 10 questions sans réponse depuis le plus longtemps.
+    # 10 questions sans réponse depuis le plus longtemps.
     questions_orphelines = conn.execute(
         f"""
         SELECT uid, type, numero, titre, auteur_nom_complet, auteur_groupe_abrege,
@@ -729,17 +769,23 @@ def tops_overview(conn: sqlite3.Connection, limit: int = 10) -> dict[str, Any]:
     ).fetchall()
 
     # 5. 10 ministères les plus lents à répondre.
+    # NB : on ne filtre PAS sur delai_reponse_jours IS NOT NULL (sinon on
+    # ne compte que les questions répondues → taux toujours = 100 %).
+    # AVG() ignore les NULL → le délai moyen porte sur les répondues,
+    # mais questions_total inclut les questions sans réponse.
     ministeres_lents = conn.execute(
         f"""
         SELECT ministere_interroge_court AS ministere,
                ROUND(AVG(delai_reponse_jours), 1) AS delai_moyen,
                COUNT(*) AS questions_total,
-               SUM(CASE WHEN statut = 'avec_reponse' THEN 1 ELSE 0 END) AS questions_repondues
+               SUM(CASE WHEN statut = 'avec_reponse' THEN 1 ELSE 0 END) AS questions_repondues,
+               ROUND(100.0 * SUM(CASE WHEN statut = 'avec_reponse' THEN 1 ELSE 0 END)
+                     / NULLIF(COUNT(*), 0), 1) AS taux_reponse
           FROM questions
          WHERE legislature = ? AND ministere_interroge_court IS NOT NULL
-           AND delai_reponse_jours IS NOT NULL
          GROUP BY ministere_interroge_court
          HAVING questions_total >= 30
+            AND SUM(CASE WHEN statut = 'avec_reponse' THEN 1 ELSE 0 END) >= 5
          ORDER BY delai_moyen DESC LIMIT ?
         """,
         (current_legislature(), limit),
@@ -763,7 +809,7 @@ def tops_overview(conn: sqlite3.Connection, limit: int = 10) -> dict[str, Any]:
         (current_legislature(), limit),
     ).fetchall()
 
-    # 7. 10 députés les plus discipliner / les plus dissidents.
+    # 7a. Classement absolu : les députés les plus alignés sur leur groupe.
     discipline_top = conn.execute(
         """
         SELECT d.uid, d.nom_complet, d.groupe_abrege, d.groupe_couleur, d.photo_url,
@@ -772,9 +818,35 @@ def tops_overview(conn: sqlite3.Connection, limit: int = 10) -> dict[str, Any]:
           FROM deputies d
           JOIN deputy_discipline_cache c ON c.acteur_uid = d.uid
          WHERE d.is_active = 1 AND c.expressed >= 50
+           AND (d.groupe_abrege IS NULL OR UPPER(d.groupe_abrege) <> 'NI')
          ORDER BY discipline_pct DESC, c.expressed DESC LIMIT ?
         """,
         (limit,),
+    ).fetchall()
+
+    # 7b. Le député le plus aligné de CHAQUE groupe (vue équilibrée :
+    # une ligne par groupe parlementaire, pas dominée par un seul groupe).
+    discipline_top_by_group = conn.execute(
+        """
+        WITH ranked AS (
+            SELECT d.uid, d.nom_complet, d.groupe_uid, d.groupe_abrege,
+                   d.groupe_couleur, d.groupe_libelle,
+                   c.expressed, c.aligned,
+                   (c.aligned * 100.0 / c.expressed) AS discipline_pct,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY d.groupe_uid
+                       ORDER BY (c.aligned * 100.0 / c.expressed) DESC,
+                                c.expressed DESC
+                   ) AS rk
+              FROM deputies d
+              JOIN deputy_discipline_cache c ON c.acteur_uid = d.uid
+             WHERE d.is_active = 1 AND c.expressed >= 50
+               AND d.groupe_uid IS NOT NULL
+               AND (d.groupe_abrege IS NULL OR UPPER(d.groupe_abrege) <> 'NI')
+        )
+        SELECT * FROM ranked WHERE rk = 1
+         ORDER BY discipline_pct DESC
+        """
     ).fetchall()
 
     # 8. 10 derniers scrutins les plus serrés.
@@ -792,12 +864,14 @@ def tops_overview(conn: sqlite3.Connection, limit: int = 10) -> dict[str, Any]:
 
     return {
         "deputes_actifs": deputes_actifs,
+        "deputes_top_questions": deputes_top_questions,
+        "deputes_top_amendements": deputes_top_amendements,
         "deputes_presents": deputes_presents,
-        "amdts_cosignes": amdts_cosignes,
         "questions_orphelines": questions_orphelines,
         "ministeres_lents": ministeres_lents,
         "textes_chauds": textes_chauds,
         "discipline_top": discipline_top,
+        "discipline_top_by_group": discipline_top_by_group,
         "scrutins_serres": scrutins_serres,
     }
 
@@ -825,7 +899,15 @@ def dissidents_list(
     if sort not in _DISSIDENT_SORTS:
         sort = "dissidence_desc"
     order_sql = _DISSIDENT_SORTS[sort]
-    where = ["d.is_active = 1", "c.expressed >= ?"]
+    # Les députés Non inscrits (NI) n'ont pas de "groupe" au sens
+    # parlementaire → la notion de discipline de groupe ne s'applique pas.
+    # On les exclut systématiquement de ce classement.
+    where = [
+        "d.is_active = 1",
+        "c.expressed >= ?",
+        "(d.groupe_abrege IS NULL OR UPPER(d.groupe_abrege) <> 'NI')",
+        "(d.groupe_libelle IS NULL OR LOWER(d.groupe_libelle) NOT LIKE '%non inscrit%')",
+    ]
     params: list[Any] = [min_votes]
     if groupe_uid:
         where.append("d.groupe_uid = ?")
@@ -1999,7 +2081,7 @@ def home_legislative_overview(conn: sqlite3.Connection) -> dict[str, Any]:
         SELECT uid, titre, statut, initiateur, date_dernier_acte, nb_amendements_total,
                procedure_libelle
           FROM dossiers WHERE legislature = ?
-         ORDER BY date_dernier_acte DESC NULLS LAST LIMIT 6
+         ORDER BY date_dernier_acte DESC NULLS LAST LIMIT 5
         """,
         (current_legislature(),),
     ).fetchall()
@@ -2007,7 +2089,7 @@ def home_legislative_overview(conn: sqlite3.Connection) -> dict[str, Any]:
         """
         SELECT uid, numero, date_scrutin, titre, sort_code, nb_pour, nb_contre, dossier_uid
           FROM scrutins
-         ORDER BY date_scrutin DESC, numero DESC LIMIT 6
+         ORDER BY date_scrutin DESC, numero DESC LIMIT 5
         """
     ).fetchall()
     return {

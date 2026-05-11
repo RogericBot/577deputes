@@ -278,12 +278,14 @@ def _xml_escape(s: str) -> str:
 
 
 def dom_circos(conn: sqlite3.Connection) -> list[dict]:
-    """Return DOM-COM deputies grouped by department for the HTML grid.
+    """Return DOM-COM + Français-de-l'étranger deputies grouped for the HTML grid.
 
-    Includes 971-976 + Saint-Pierre-et-Miquelon (975) + Saint-Barthélemy /
-    Saint-Martin (977) + Wallis-et-Futuna (986) + Polynésie française (987)
-    + Nouvelle-Calédonie (988). Their députés sit in the Assemblée even
-    though some of these constituencies have no GeoJSON polygon.
+    Includes Guadeloupe (971), Martinique (972), Guyane (973), La Réunion
+    (974), Saint-Pierre-et-Miquelon (975), Mayotte (976), Saint-Barthélemy /
+    Saint-Martin (977), Wallis-et-Futuna (986), Polynésie française (987),
+    Nouvelle-Calédonie (988) and the 11 constituencies for French citizens
+    living abroad (code 099). Their députés sit in the Assemblée even though
+    none of these constituencies has a GeoJSON polygon on the metro map.
     """
     DOM_DEPT_NAMES = {
         "971": ("Guadeloupe", "971"),
@@ -296,6 +298,7 @@ def dom_circos(conn: sqlite3.Connection) -> list[dict]:
         "986": ("Wallis-et-Futuna", "986"),
         "987": ("Polynésie française", "987"),
         "988": ("Nouvelle-Calédonie", "988"),
+        "099": ("Français établis hors de France", "099"),
     }
     rows = conn.execute(
         """
@@ -305,7 +308,7 @@ def dom_circos(conn: sqlite3.Connection) -> list[dict]:
           FROM deputies
          WHERE is_active = 1
            AND departement_code IN ('971','972','973','974','975','976',
-                                    '977','986','987','988')
+                                    '977','986','987','988','099')
          ORDER BY departement_code, circonscription
         """
     ).fetchall()

@@ -119,7 +119,7 @@
     {% endif %}
     <p class="muted small share-line">
       <strong>Lien partageable :</strong>
-      <input type="text" readonly value="https://577deputes.fr{{ share_url }}"
+      <input type="text" readonly value="{{ site_base_url | default('https://577deputes.fr', true) }}{{ share_url }}"
              id="share-url-input"
              class="share-input"
              title="Cliquer pour copier">

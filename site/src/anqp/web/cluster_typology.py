@@ -2,23 +2,22 @@
 
 Classifie chaque cluster en 4 catégories selon sa composition :
 
-  - obstruction  : ≥ 15 amendements (manœuvre de blocage / saturation
-                   du débat, peu importe la composition partisane)
-  - convergence  : ≥ 2 groupes différents (consensus technique ou
-                   alliance opportuniste — signale les positions partagées)
+  - depot_masse   : ≥ 15 amendements (dépôt massif d'amendements
+                    similaires — peut viser à enrichir le débat comme
+                    à le ralentir ; aucune intention n'est inférée ici)
+  - convergence   : ≥ 2 groupes différents (consensus technique ou
+                    alliance opportuniste — signale les positions partagées)
   - amplification : 1 seul groupe, ≥ 3 amendements (stratégie collective
                     d'un groupe pour pousser un point)
   - reutilisation : 2-3 amendements, peu importe le groupe (réécriture
                     triviale d'un modèle, faible signal politique)
 
-L'ordre de priorité est : obstruction > convergence > amplification >
-reutilisation. La taille (obstruction) prime toujours.
+L'ordre de priorité est : depot_masse > convergence > amplification >
+reutilisation. La taille (dépôt en masse) prime toujours.
 
-Calibration sur la 17e legislature (mai 2026) :
-    obstruction   :     91 clusters
-    convergence   :  4 200 clusters env.
-    amplification :  2 800 clusters env.
-    reutilisation :  2 300 clusters env.
+NB : la clé interne du premier bucket reste "obstruction" pour ne pas
+casser les URLs ?type=obstruction existantes ; seul le LIBELLÉ visible
+a été neutralisé en "Dépôt en masse".
 """
 from __future__ import annotations
 
@@ -32,8 +31,8 @@ AMPLIFICATION_MIN_SIZE = 3
 CLUSTER_TYPES = {
     "obstruction": {
         "key": "obstruction",
-        "label": "Obstruction",
-        "description": "Cluster volumineux (≥ 15 amendements quasi-identiques) — souvent une tactique de blocage du débat.",
+        "label": "Dépôt en masse",
+        "description": "Cluster volumineux (≥ 15 amendements quasi-identiques sur le même article). Un dépôt massif d'amendements similaires peut viser à enrichir le débat comme à le ralentir — l'intention n'est pas inférée ici, seul le volume est constaté.",
         "color": "#dc2626",
         "order": 1,
     },

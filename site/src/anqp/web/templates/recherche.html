@@ -7,9 +7,26 @@
 <p class="muted">Cherche le même mot-clé à travers les questions, les amendements, les scrutins, les dossiers législatifs et les députés.</p>
 
 <form action="/recherche" method="get" class="search-form" style="background:white;padding:0;margin:16px 0">
-  <input type="search" name="q" value="{{ q }}" placeholder="Sujet, mot-clé, nom (ex: retraite, antisémitisme, Yadan…)" autofocus>
+  <input type="search" name="q" value="{{ q }}" placeholder="Sujet, mot-clé, nom (ex: retraite, frelon asiatique, Yadan…)" autofocus>
   <button type="submit">Chercher</button>
 </form>
+
+<p class="muted small" style="margin-top: -8px;">
+  Exemples :
+  <a href="/recherche?q=retraite">retraite</a> ·
+  <a href="/recherche?q=frelon+asiatique">frelon asiatique</a> ·
+  <a href="/recherche?q=titre%3Aagriculture">titre:agriculture</a>
+  <span class="muted">(recherche dans le titre uniquement)</span> ·
+  <a href="/recherche?q=fraude+-fiscale">fraude -fiscale</a>
+  <span class="muted">(exclut « fiscale »)</span> ·
+  <a href="/recherche?q=%22travail+d%C3%A9tach%C3%A9%22">"travail détaché"</a>
+  <span class="muted">(expression exacte)</span>.
+  <br>
+  Syntaxe complète : opérateurs <code>AND</code> / <code>OR</code> / <code>NOT</code>,
+  recherche par champ <code>champ:valeur</code>, négation <code>-mot</code>,
+  expression entre <code>"guillemets"</code>. Voir la
+  <a href="/a-propos#analyses">page méthodologie</a> pour le détail (moteur SQLite FTS5).
+</p>
 
 {% if q and not res %}
   <p class="muted">Tape au moins 2 caractères.</p>

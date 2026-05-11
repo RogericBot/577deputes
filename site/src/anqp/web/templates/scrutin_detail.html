@@ -11,7 +11,7 @@
 <article class="scrutin-detail">
   <header class="card">
     <p class="meta">
-      <span class="qtype qtype-scrutin">scrutin public</span>
+      <span class="qtype qtype-scrutin" title="Scrutin public nominatif de séance publique (les votes en commission ne sont pas dans cette base)">scrutin public de séance</span>
       <span>n° {{ s.numero }}</span>
       <span class="muted">{{ s.date_scrutin | fdate }}</span>
       {% if s.source_url %}<a class="btn-link" href="{{ s.source_url }}" target="_blank" rel="noopener">Source officielle ↗</a>{% endif %}
@@ -31,7 +31,9 @@
       <div>
         <h3>Décompte officiel</h3>
         <ul class="kv">
-          <li><span>Votants</span> <strong>{{ s.nombre_votants | fint }}</strong></li>
+          <li><span>Votants</span>
+            <strong>{{ s.nombre_votants | fint }}<span class="muted"> / 577 sièges</span>
+            {% if s.nombre_votants %}<span class="muted small">· {{ (s.nombre_votants / 577 * 100) | round | int }} % de participation</span>{% endif %}</strong></li>
           <li><span>Suffrages exprimés</span> <strong>{{ s.suffrages_exprimes | fint }}</strong></li>
           <li><span>Seuil de majorité</span> <strong>{{ s.seuil_majorite | fint }}</strong></li>
           <li><span>Pour</span> <strong style="color:var(--good)">{{ s.nb_pour | fint }}</strong></li>
@@ -39,6 +41,15 @@
           <li><span>Abstentions</span> <strong>{{ s.nb_abstentions | fint }}</strong></li>
           <li><span>Non-votants</span> <strong class="muted">{{ s.nb_non_votants | fint }}</strong></li>
         </ul>
+        {% if s.nombre_votants and s.nombre_votants < 50 %}
+        <p class="muted small" style="margin-top:8px">
+          ⓘ <strong>Faible affluence</strong> : seuls {{ s.nombre_votants }} députés
+          ont pris part à ce scrutin (sur 577 sièges). C'est fréquent à l'Assemblée
+          — les votes peuvent avoir lieu tard, sur des points techniques ou peu
+          disputés — et il n'y a pas de quorum requis pour la plupart des votes :
+          ce décompte n'en est pas moins officiel et complet.
+        </p>
+        {% endif %}
       </div>
       {% set chart_pour = [] %}
       {% set chart_contre = [] %}

@@ -160,8 +160,15 @@ def parse_acteur(raw: dict) -> tuple[dict | None, list[dict]]:
         mandate_rows.append(row)
 
         # Pick the "current" parliamentary mandate for this legislature.
+        # ⚠️ Il faut EXIGER typeOrgane == "ASSEMBLEE" : un même député peut
+        # avoir plusieurs mandats de type "MandatParlementaire_type" (BUREAU,
+        # PRESIDENCE, COMMISSION en tant que président…) et seul le mandat
+        # ASSEMBLEE porte la circonscription (champ election.lieu). Sans ce
+        # filtre, ~50 députés (ceux ayant un mandat de bureau/présidence qui
+        # précède dans le JSON) se retrouvaient sans circo/département.
         if (
-            m.get("@xsi:type") == "MandatParlementaire_type"
+            type_organe == "ASSEMBLEE"
+            and m.get("@xsi:type") == "MandatParlementaire_type"
             and leg == settings.legislature
             and is_open
             and parl_mandate is None

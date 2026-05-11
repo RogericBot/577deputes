@@ -22,7 +22,7 @@
     <tbody>
     {% for r in data.by_initiateur %}
       <tr>
-        <td><a href="/textes?initiateur={{ r.initiateur_type }}">{{ r.initiateur_type }}</a></td>
+        <td><a href="/textes?initiateur={{ r.initiateur_type }}">{{ r.initiateur_type | capitalize }}</a></td>
         <td>{{ r.c | fint }}</td>
         <td>{{ r.adoptes | fint }}</td>
         <td>{{ r.rejetes | fint }}</td>

@@ -4,7 +4,18 @@
 {% block content %}
 
 <h1>Scrutins publics nominatifs — 17ᵉ législature</h1>
-<p class="muted">{{ result.total | fint }} scrutin{% if result.total > 1 %}s{% endif %}. Cette base ne couvre QUE les scrutins publics nominatifs. Les votes à main levée n'apparaissent pas.</p>
+<p class="muted">
+  {{ result.total | fint }} scrutin{% if result.total > 1 %}s{% endif %}.
+  Cette base ne couvre que les <strong>scrutins publics nominatifs de séance publique</strong> :
+  les votes en commission et les votes à main levée n'y figurent pas.
+</p>
+<p class="muted small">
+  ⓘ L'Assemblée vote très souvent avec une fraction seulement de l'hémicycle.
+  Un faible nombre de votants reflète l'<em>affluence ce jour-là</em>, pas un
+  décompte tronqué — et il n'y a pas de quorum requis pour la plupart des votes.
+  La colonne « Votants » indique combien de députés (sur 577 sièges) ont pris
+  part au scrutin.
+</p>
 
 <form action="/scrutins" method="get" class="filter-bar">
   <input type="search" name="q" value="{{ filters.q }}" placeholder="Recherche dans le titre / objet…">
@@ -34,6 +45,7 @@
       <th>Objet</th>
       <th>Sort</th>
       <th>Pour / Contre / Abst.</th>
+      <th>Votants</th>
       <th>Texte lié</th>
     </tr>
   </thead>
@@ -49,10 +61,16 @@
         <span class="vote-contre">{{ s.nb_contre | fint }}</span> /
         <span class="muted">{{ s.nb_abstentions | fint }}</span>
       </td>
+      <td>
+        {% if s.nombre_votants is not none %}
+          {{ s.nombre_votants | fint }}<span class="muted small"> / 577</span>
+          {% if s.nombre_votants < 50 %}<span class="pill pill-warn" title="Affluence inhabituellement basse — fréquent à l'Assemblée, n'invalide pas le vote">faible affluence</span>{% endif %}
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
       <td>{% if s.dossier_uid %}<a href="/textes/{{ s.dossier_uid }}">{{ s.dossier_titre | truncate(80) }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
     </tr>
   {% else %}
-    <tr><td colspan="6" class="empty">Aucun scrutin avec ces filtres.</td></tr>
+    <tr><td colspan="7" class="empty">Aucun scrutin avec ces filtres.</td></tr>
   {% endfor %}
   </tbody>
 </table>
