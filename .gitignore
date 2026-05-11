@@ -34,6 +34,7 @@ site/data/analytics.db-*
 site/data/analyses_cache.pkl
 site/data/raw/
 *.tar.gz
+*.zip
 *.pkl
 
 # --- Logs ---
