@@ -1,0 +1,652 @@
+%==============================================================================
+%  Parte III — Versión en español (traducción completa, refleja la Parte I).
+%==============================================================================
+\clearpage
+\selectlanguage{spanish}
+\part{Versión en español}
+\setcounter{section}{0}   % cada parte lingüística se numera 1, 2, 3, … por su cuenta
+
+\section{Introducción y alcance}
+
+\subsection{Objeto}
+\emph{577deputes.fr} es una aplicación web \emph{local-first}: descarga los
+conjuntos de datos abiertos oficiales, los ingiere en una base de datos SQLite y
+expone páginas de consulta e indicadores derivados para la XVII\textsuperscript{a}
+legislatura de la Asamblea Nacional francesa (en curso desde julio de 2024). La
+aplicación no produce ningún dato primario; todo lo que muestra es, o bien un dato
+en bruto tomado tal cual de una fuente pública, o bien el resultado de un cálculo
+documentado aquí.
+
+\subsection{Fuentes}
+\begin{itemize}
+  \item \textbf{Asamblea Nacional} (\href{https://data.assemblee-nationale.fr}{data.assemblee-nationale.fr},
+        \emph{Licence Ouverte~2.0}): actores, mandatos y órganos; expedientes
+        legislativos, documentos y actos de procedimiento; enmiendas; votaciones
+        públicas nominales y votos individuales; preguntas escritas, orales y al
+        Gobierno; orden del día de las sesiones y actas literales.
+  \item \textbf{INSEE}: población legal por circunscripción legislativa.
+  \item \textbf{Ministerio del Interior} (data.gouv.fr): inscritos, votantes y
+        abstención por circunscripción (elecciones legislativas de 2024).
+\end{itemize}
+Los conjuntos de datos de la Asamblea se actualizan a diario mediante peticiones
+condicionales (ETag / Last-Modified); un fallo de descarga no altera las demás
+fuentes.
+
+\subsection{Volumen (instantánea utilizada para este documento)}
+\begin{center}\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+Diputados indexados (de los cuales 577 en ejercicio) & $\approx 630$ \\
+Preguntas parlamentarias & $\approx 17\,000$ \\
+\quad de las cuales con respuesta publicada $>200$ caracteres & $10\,766$ \\
+Enmiendas (XVII\textsuperscript{a} legislatura) & $108\,115$ \\
+Votaciones públicas nominales & $6\,490$ \\
+Votos individuales & $1\,043\,305$ \\
+Pares (grupo, votación) con posición mayoritaria & $77\,748$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Lo que queda fuera del alcance}
+\begin{itemize}
+  \item \textbf{Las votaciones a mano alzada} y \textbf{las votaciones en
+        comisión}: el conjunto de datos \og{}Scrutins\fg{} solo contiene las
+        votaciones públicas nominales celebradas en el pleno. Todas las cifras de
+        cohesión, disciplina y absentismo se apoyan en ese perímetro
+        (cf.~§\ref{sec:limites-es}).
+  \item \textbf{Los expedientes abiertos bajo la XVI\textsuperscript{a}
+        legislatura} y continuados bajo la XVII\textsuperscript{a}: están indexados
+        pero asignados a su legislatura de origen, de ahí pequeñas discrepancias
+        entre contadores.
+  \item \textbf{La inferencia de intención}: ningún indicador de este documento
+        pretende establecer un motivo. \og{}Presentación masiva\fg{}, \og{}enmienda
+        fantasma\fg{}, \og{}absentismo estratégico\fg{} describen \emph{regularidades
+        medibles}, no designios.
+\end{itemize}
+
+\section{Notación y convenciones}\label{sec:notations-es}
+Escribimos $J(A,B) = |A\cap B| / |A\cup B|$ para el coeficiente de Jaccard de dos
+conjuntos. Para una votación $v$, $\mathrm{a\_favor}(v)$, $\mathrm{en\_contra}(v)$,
+$\mathrm{abst}(v)$ son los recuentos oficiales y
+$\text{emitidos}(v)=\mathrm{a\_favor}(v)+\mathrm{en\_contra}(v)+\mathrm{abst}(v)$.
+Para un grupo parlamentario $G$ y una votación $v$, $p^\star(v,G)$ es la
+\emph{posición mayoritaria} del grupo tal como la publica la Asamblea (campo
+\code{positionMajoritaire}), con valores en $\{\text{a favor},\text{en contra},\text{abstención}\}$.
+En la instantánea utilizada, ese campo está cumplimentado para los $77\,748$ pares
+$(G,v)$ y nunca toma otro valor (47,9~\% \og{}a favor\fg{}, 46,8~\% \og{}en
+contra\fg{}, 5,3~\% \og{}abstención\fg{}): por lo tanto no existe, a nuestro nivel,
+ningún empate exacto que arbitrar.
+
+Cada subsección de indicador sigue el mismo esquema: \textbf{(a)~definición},
+\textbf{(b)~algoritmo y parámetros}, \textbf{(c)~sensibilidad}, \textbf{(d)~literatura},
+\textbf{(e)~límites}. Las cifras de sensibilidad provienen del script
+\code{methodo\_sensitivity.py} ejecutado sobre la instantánea anterior; las tablas
+completas están en el anexo~\ref{sec:annexes-es} y en el depósito.
+
+\section{Los indicadores}
+
+\subsection{Detección de enmiendas casi idénticas}\label{sec:clusters-es}
+
+\paragraph{(a) Definición.} Se busca agrupar las enmiendas cuyo texto dispositivo
+es \og{}esencialmente el mismo\fg{}, compartan o no autor. Para una enmienda $a$ se
+construye $S_a$, el conjunto de los $k$-\emph{shingles} de palabras (secuencias de
+$k$ palabras consecutivas) del texto normalizado, cada uno troceado a 64~bits. Dos
+enmiendas $a,a'$ se consideran casi idénticas si $J(S_a,S_{a'})\ge\theta$. Un
+\emph{clúster} es una componente conexa (en el sentido de la unión de esos pares)
+de tamaño $\ge 2$.
+
+\paragraph{(b) Algoritmo y parámetros.}
+\begin{enumerate}[label=\arabic*.]
+  \item \emph{Normalización}: supresión de etiquetas HTML; descomposición Unicode
+        (NFKD) y supresión de diacríticos; paso a minúsculas; supresión de todo
+        carácter fuera de \texttt{[a-z0-9 ]}; normalización de espacios; truncado a
+        $L_{\max}=12\,000$ caracteres.
+  \item \emph{Shingling}: $k = 5$; $S_a=\{h(w_i\cdots w_{i+k-1})\}$ con $h$ un
+        hash BLAKE2b de 64~bits. Enmienda descartada si $|S_a| < s_{\min}=8$.
+  \item \emph{Firma MinHash}: $K=64$ funciones hash $g_j(x)=x\oplus\sigma_j$
+        ($\sigma_j$ semillas deterministas), firma $\mathrm{sig}_j(a)=\min_{x\in S_a} g_j(x)$.
+  \item \emph{Bloqueo LSH}: la firma se divide en $b=16$ bandas de $r=4$
+        componentes; $a$ y $a'$ son \emph{candidatos} si coinciden en al menos una
+        banda. La probabilidad de que un par de similitud real $s$ sea candidato es
+        $P(s)=1-(1-s^{\,r})^{b}$ (curva en S, umbral $\approx (1/b)^{1/r}\approx 0{,}55$).
+  \item \emph{Verificación}: para cada par candidato, cálculo del Jaccard exacto
+        sobre $S_a$, $S_{a'}$; par retenido si $J\ge\theta=0{,}80$.
+  \item \emph{Agrupamiento}: union-find sobre los pares retenidos; clústeres de
+        tamaño $\ge 2$.
+\end{enumerate}
+En la instantánea: $62\,476$ enmiendas pasan el umbral $s_{\min}$; se obtienen
+$\approx 9\,460$ clústeres que agrupan $28\,124$ enmiendas (la base de producción
+registra $28\,055$ — la diferencia de $0{,}25~\%$ proviene de una salvaguarda de
+tamaño de \emph{bucket} introducida en el script de verificación, y constituye
+nuestro control de reproducibilidad).
+
+\paragraph{(c) Sensibilidad.}
+\emph{Umbral $\theta$} (conjunto completo, LSH de producción):
+\begin{center}\small
+\begin{tabular}{rrrr}
+\toprule
+$\theta$ & pares retenidos & clústeres & enmiendas agrupadas (\%) \\
+\midrule
+0,70 & 180\,407 & 9\,638 & 32\,953 \;(52,8~\%) \\
+0,75 & 147\,438 & 9\,334 & 30\,794 \;(49,3~\%) \\
+0,78 & \phantom{0}88\,007 & 9\,649 & 29\,159 \;(46,7~\%) \\
+\textbf{0,80} & \phantom{0}\textbf{60\,381} & \textbf{9\,461} & \textbf{28\,124 \;(45,0~\%)} \\
+0,82 & \phantom{0}54\,380 & 9\,253 & 26\,834 \;(43,0~\%) \\
+0,85 & \phantom{0}43\,701 & 9\,023 & 25\,212 \;(40,4~\%) \\
+0,90 & \phantom{0}34\,480 & 8\,440 & 22\,782 \;(36,5~\%) \\
+0,95 & \phantom{0}30\,679 & 7\,840 & 20\,934 \;(33,5~\%) \\
+\bottomrule
+\end{tabular}
+\end{center}
+La sensibilidad es \emph{moderada}: $\pm0{,}05$ alrededor de $0{,}80$ desplaza el
+número de enmiendas agrupadas en $\approx\pm10$ a $\pm15~\%$. Pero la distribución
+de las similitudes de los pares candidatos (anexo~\ref{sec:annexes-es}) muestra que
+$0{,}80$ cae en una \emph{zona de transición}: hay una gran masa de pares en
+$[0{,}75;0{,}85)$ (enmiendas que comparten mucho texto estándar sin ser copias),
+mientras que las copias casi literales forman un pico distinto por encima de
+$0{,}95$. Un umbral más estricto ($0{,}90$) solo retendría las copias casi
+verbatim; uno más laxo ($0{,}70$--$0{,}75$) absorbería también las reescrituras
+pesadas. La elección de $0{,}80$ es un compromiso asumido, no un punto
+\og{}natural\fg{} de la nube. Para $\theta<0{,}80$, la cobertura de los pares
+candidatos por el LSH 16$\times$4 disminuye (véase abajo): los recuentos mostrados
+ahí son cotas inferiores.
+
+\emph{Tamaño de los shingles $k$} (muestra de $\approx 3\,500$ enmiendas, Jaccard
+exacto sobre todos los pares, $\theta=0{,}80$): $k=3 \Rightarrow 12{,}4~\%$
+agrupadas; $k=5 \Rightarrow 8{,}3~\%$; $k=7 \Rightarrow 6{,}5~\%$. Shingles más
+cortos son más permisivos; $k=5$ es el ajuste mediano.
+
+\emph{Configuración LSH} ($b\times r$): $P(s)=1-(1-s^r)^b$. Para el ajuste de
+producción 16$\times$4: $P(0{,}80)=0{,}9998$, $P(0{,}70)=0{,}988$, $P(0{,}50)=0{,}64$.
+El LSH solo afecta a la \emph{cobertura} de los pares candidatos; la
+\emph{precisión} final está garantizada por la verificación Jaccard exacta que
+sigue. En el umbral de producción, la cobertura es por tanto casi perfecta.
+
+\emph{Truncado $L_{\max}$ y umbral mínimo $s_{\min}$}: solo $192$ enmiendas
+($0{,}18~\%$) superan los $12\,000$ caracteres tras la normalización; elevar
+$s_{\min}$ de $8$ a $50$ excluiría el $38~\%$ de las enmiendas actualmente retenidas
+(el valor $8$ es deliberadamente permisivo, para conservar los textos dispositivos
+cortos).
+
+\paragraph{(d) Literatura.} La representación por \emph{shingles} y la estimación de
+la similitud de Jaccard mediante min-wise hashing se deben a
+Broder~\cite{broder1997,broder2000}; el bloqueo por bandas (LSH) sigue a
+Gionis-Indyk-Motwani~\cite{gionis1999} y la exposición de
+Leskovec-Rajaraman-Ullman~\cite{lru2014}. La aplicación a la detección de
+reutilización de texto legislativo está explorada notablemente por el
+\emph{Legislative Influence Detector}~\cite{burgess2016} y los trabajos sobre la
+difusión de \og{}model bills\fg{} (Hertel-Fernandez~\cite{hf2014},
+Jansa et al.~\cite{jansa2019}, Linder et al.~\cite{linder2020}). Nuestro aporte no
+es metodológico: es la \emph{aplicación} de piezas conocidas al flujo de enmiendas
+de la Asamblea, con una tipología descriptiva.
+
+\paragraph{(e) Límites.} (i)~La normalización \emph{trunca} más allá de $12\,000$
+caracteres: dos enmiendas muy largas solo se comparan en su prefijo. (ii)~El
+shingling de palabras ignora el orden más allá de la ventana $k$: una reordenación
+de párrafos puede hacer caer el Jaccard. (iii)~El umbral $0{,}80$ está en la zona
+ambigua de la nube: la frontera exacta de los clústeres es convencional. (iv)~Un
+\og{}clúster\fg{} no dice nada de una coordinación intencional: un mismo modelo
+puede circular vía una federación de asociaciones, un sindicato, un sitio
+militante, sin concertación entre diputados.
+
+\subsection{Tipología de los clústeres}\label{sec:typo-es}
+
+\paragraph{(a) Definición.} Para un clúster $C$, sean $n(C)=|C|$ su tamaño y $g(C)$
+el número de grupos parlamentarios distintos entre sus enmiendas. Se clasifica:
+\[
+\tau(C)=\begin{cases}
+\text{presentación masiva} & \text{si } n(C)\ge \param{T_{masa}}=15,\\[2pt]
+\text{convergencia intergrupos} & \text{si no, si } g(C)\ge 2,\\[2pt]
+\text{amplificación intragrupo} & \text{si no, si } g(C)\le 1 \text{ y } n(C)\ge \param{T_{ampl}}=3,\\[2pt]
+\text{reutilización simple} & \text{en otro caso.}
+\end{cases}
+\]
+El tamaño siempre prevalece; no se infiere ninguna intención (la etiqueta interna
+\og{}obstrucción\fg{} se neutralizó a \og{}presentación masiva\fg{}).
+
+\paragraph{(b) Algoritmo y parámetros.} Cálculo directo sobre la tabla de clústeres
+($\param{T_{masa}}=15$, $\param{T_{ampl}}=3$). En la instantánea (clústeres de
+$\theta=0{,}80$): $91$ clústeres \og{}presentación masiva\fg{} ($2\,578$ enmiendas),
+$4\,314$ \og{}convergencia\fg{} ($13\,834$), $773$ \og{}amplificación\fg{}
+($3\,146$), $4\,283$ \og{}reutilización\fg{} ($8\,566$).
+
+\paragraph{(c) Sensibilidad.}
+\begin{center}\small
+\begin{tabular}{rr rr rr rr}
+\toprule
+$\param{T_{masa}}$ & $\param{T_{ampl}}$ & \multicolumn{2}{c}{pres. masiva} & \multicolumn{2}{c}{convergencia} & \multicolumn{2}{c}{amplificación} \\
+ & & cl. & enm. & cl. & enm. & cl. & enm. \\
+\midrule
+10 & 3 & 203 & 3\,875 & 4\,226 & 12\,812 & 749 & 2\,871 \\
+\textbf{15} & \textbf{3} & \textbf{91} & \textbf{2\,578} & \textbf{4\,314} & \textbf{13\,834} & \textbf{773} & \textbf{3\,146} \\
+20 & 3 & 43 & 1\,776 & 4\,352 & 14\,472 & 783 & 3\,310 \\
+30 & 3 & 19 & 1\,218 & 4\,370 & 14\,880 & 789 & 3\,460 \\
+50 & 3 & \phantom{0}7 & \phantom{0,}784 & 4\,377 & 15\,121 & 794 & 3\,653 \\
+\midrule
+15 & 2 & 91 & 2\,578 & 4\,314 & 13\,834 & 5\,056 & 11\,712 \\
+15 & 5 & 91 & 2\,578 & 4\,314 & 13\,834 & 160 & 1\,138 \\
+\bottomrule
+\end{tabular}
+\end{center}
+El \emph{número} de clústeres \og{}presentación masiva\fg{} es sensible a
+$\param{T_{masa}}$ ($91$ a $7$ entre los umbrales $15$ y $50$) pero el
+\emph{volumen} de enmiendas afectado lo es menos; el umbral $\param{T_{ampl}}$
+sobre todo hace deslizar clústeres entre \og{}amplificación\fg{} y
+\og{}reutilización\fg{}. La distribución por tamaño está en el
+anexo~\ref{sec:annexes-es}.
+
+\paragraph{(d) Literatura.} La tipología es ad~hoc y descriptiva; se inscribe en el
+campo del estudio de la \emph{obstrucción parlamentaria} y de la presentación
+masiva de enmiendas como táctica de debate (cf.~Koger~\cite{koger2010} para el caso
+estadounidense; el propio Reglamento de la Asamblea Nacional regula la
+\og{}discusión común\fg{} de enmiendas idénticas).
+
+\paragraph{(e) Límites.} Cuatro casillas, umbrales redondos: un clúster de $14$
+enmiendas idénticas y uno de $16$ caen a uno y otro lado de una frontera sin
+fundamento teórico. La casilla \og{}convergencia\fg{} no distingue un consenso
+técnico de una alianza puntual.
+
+\subsection{Disciplina de voto (cohesión individual)}\label{sec:discipline-es}
+
+\paragraph{(a) Definición.} Sea $G_d$ el grupo del diputado $d$. Sea $V_d$ el
+conjunto de las votaciones donde $d$ ha emitido un voto $p_d(v)\in\{\text{a favor},\text{en contra},\text{abstención}\}$
+\emph{y} donde $p^\star(v,G_d)$ está definida. Se pone
+\[
+\mathrm{emitidos}(d)=|V_d|,\quad
+\mathrm{alineados}(d)=\big|\{v\in V_d : p_d(v)=p^\star(v,G_d)\}\big|,\quad
+\mathrm{disciplina}(d)=\frac{\mathrm{alineados}(d)}{\mathrm{emitidos}(d)}.
+\]
+Se muestra en las clasificaciones solo si $\mathrm{emitidos}(d)\ge 50$ (o $\ge 100$
+para la lista de \og{}disidentes\fg{}, ordenada por disciplina creciente); los
+diputados no inscritos (NI) quedan excluidos.
+
+\paragraph{(b) Algoritmo y parámetros.} Todo se apoya en el campo oficial
+$p^\star$: \emph{no} calculamos nosotros la posición mayoritaria de un grupo. En la
+instantánea, $\mathrm{disciplina}$ tiene una media de $\approx 91{,}9~\%$, una
+mediana de $\approx 92{,}5~\%$, un decil inferior de $\approx 85~\%$.
+
+\paragraph{(c) Sensibilidad.} Efecto del umbral mínimo de votos emitidos:
+\begin{center}\small
+\begin{tabular}{rrrrrr}
+\toprule
+umbral & elegibles & media & mediana & $p_{10}$ & $p_{90}$ \\
+\midrule
+0   & 639 & 91,92 & 92,56 & 84,92 & 98,30 \\
+20  & 628 & 91,87 & 92,50 & 84,93 & 98,25 \\
+\textbf{50}  & \textbf{623} & \textbf{91,85} & \textbf{92,50} & \textbf{84,99} & \textbf{98,21} \\
+100 & 611 & 91,83 & 92,45 & 85,02 & 98,18 \\
+200 & 600 & 91,87 & 92,46 & 85,06 & 98,18 \\
+\bottomrule
+\end{tabular}
+\end{center}
+El indicador es \emph{muy robusto} al umbral: la media y los cuantiles solo varían
+unas centésimas de punto entre los umbrales $0$ y $200$. La elección $\ge 50$ no es,
+pues, un parámetro sensible — solo sirve para evitar mostrar un \og{}100~\%\fg{}
+basado en tres votos.
+
+\paragraph{(d) El \og{}sesgo circular\fg{}.} La posición $p^\star(v,G_d)$ es la
+pluralidad de los votos de los miembros de $G_d$, y $d$ forma parte de él: $d$ es,
+pues, comparado, en parte, con una posición que él ha contribuido a definir. Es un
+sesgo \emph{real} pero (i)~no es obra nuestra — es la convención oficial de la
+Asamblea; (ii)~para un grupo de $50$ a $120$ miembros, el peso de un voto individual
+en la pluralidad está acotado por $\le 2~\%$; (iii)~el caso de un empate exacto, que
+haría ambigua la pluralidad, lo arbitra aguas arriba la Asamblea y nunca aparece en
+los datos (el campo $p^\star$ está siempre cumplimentado y siempre en
+$\{\text{a favor},\text{en contra},\text{abstención}\}$, cf.~§\ref{sec:notations-es}).
+
+\paragraph{(e) Literatura.} La disciplina así definida es la versión
+\emph{individual} (por diputado) de los índices de cohesión partidaria: índice de
+Rice~\cite{rice1925}, \emph{Agreement Index} de Hix-Noury-Roland~\cite{hnr2005,hnr2007},
+discusión de Carey~\cite{carey2007} sobre los \og{}principales en competencia\fg{}.
+\emph{No} estima puntos ideales: para ello harían falta métodos tipo NOMINATE o
+\emph{Optimal Classification} (Poole-Rosenthal~\cite{pr1997}, Poole~\cite{poole2005}),
+fuera de alcance.
+
+\paragraph{(e') Límites.} (i)~Perímetro restringido a las votaciones públicas
+nominales: la \og{}disciplina\fg{} medida es la de los votos \emph{emitidos y
+registrados}, no la unidad de grupo en general. (ii)~Una abstención conforme con la
+posición del grupo cuenta como \og{}alineada\fg{}. (iii)~Un diputado a menudo
+ausente tiene un $\mathrm{emitidos}$ bajo: su disciplina se mide sobre pocos casos
+(de ahí el umbral).
+
+\subsection{Matriz de cohesión entre grupos}\label{sec:matrice-es}
+
+\paragraph{(a) Definición.} Para dos grupos $G_1,G_2$, sea $V_{12}$ el conjunto de
+las votaciones donde ambos tienen una posición mayoritaria definida. La cohesión es
+\[
+\mathrm{coh}(G_1,G_2)=\frac{\big|\{v\in V_{12}:p^\star(v,G_1)=p^\star(v,G_2)\}\big|}{|V_{12}|},
+\qquad \mathrm{coh}(G,G)=1.
+\]
+
+\paragraph{(b) Algoritmo y parámetros.} Ningún parámetro libre; una auto-unión
+sobre la tabla de posiciones mayoritarias.
+
+\paragraph{(c) Sensibilidad.} Una elección discutible: una \og{}abstención $=$
+abstención\fg{} cuenta como acuerdo. Recalculando la matriz sin las votaciones donde
+ambos grupos se abstienen, la diferencia absoluta media es de $0{,}21$~puntos y el
+máximo de $0{,}83$~puntos. El efecto es, pues, \emph{despreciable}.
+
+\paragraph{(d) Literatura.} Es una matriz de \emph{acuerdo} entre bloques en el
+sentido de Hix-Noury-Roland~\cite{hnr2007}; no proporciona ningún orden
+unidimensional (para ello, véanse los métodos espaciales citados en
+§\ref{sec:discipline-es}).
+
+\paragraph{(e) Límites.} Cohesión calculada sobre \emph{posiciones de grupo}, no
+sobre votos individuales: un grupo dividido $51/49$ y un grupo unánime cuentan
+igual. Dos \og{}en contra\fg{} por motivos opuestos son indistinguibles de un
+acuerdo de fondo.
+
+\subsection{Diagrama ternario de los bloques}\label{sec:ternaire-es}
+
+\paragraph{(a) Definición.} Dados tres grupos \emph{ancla} $A_1,A_2,A_3$ situados en
+los vértices de un triángulo equilátero en posiciones $\mathbf{x}_{A_1},\mathbf{x}_{A_2},\mathbf{x}_{A_3}$,
+un grupo $G$ de cohesiones $c_i=\mathrm{coh}(G,A_i)$ se sitúa en
+\[
+(\alpha,\beta,\gamma)=\frac{(c_1,c_2,c_3)}{c_1+c_2+c_3},\qquad
+\mathbf{x}_G=\alpha\,\mathbf{x}_{A_1}+\beta\,\mathbf{x}_{A_2}+\gamma\,\mathbf{x}_{A_3}.
+\]
+Las anclas por defecto son LFI, EPR, RN; el usuario puede cambiarlas.
+
+\paragraph{(b)--(c) Algoritmo y sensibilidad.} El único \og{}parámetro\fg{} es la
+elección de las tres anclas: el diagrama no es más que una \emph{re-proyección} de
+la matriz de cohesión §\ref{sec:matrice-es} sobre tres ejes elegidos, y cambia con
+ellos.
+
+\paragraph{(d)--(e) Literatura y límites.} Herramienta de visualización, sin
+pretensión de medida: la posición de un grupo \emph{depende del marco de
+referencia}. No leer las distancias como distancias ideológicas.
+
+\subsection{Coaliciones por votación (por tema)}\label{sec:coalitions-es}
+
+\paragraph{(a) Definición.} Se seleccionan las votaciones \og{}muy concurridas y
+divisivas\fg{}: (a)~$\text{emitidos}(v)\ge \param{T_v}=300$ ($\approx 52~\%$ de los
+577 escaños); (b)~$|\mathrm{a\_favor}(v)-\mathrm{en\_contra}(v)|\le \param{T_e}=50$.
+Se ordena por (b) creciente y luego fecha decreciente y se conservan las $N=10$
+primeras; si pasan menos de $N/2$ votaciones, se relaja el criterio (b). Para cada
+votación retenida, se muestra la posición mayoritaria de cada grupo.
+
+\paragraph{(b)--(c) Parámetros y sensibilidad.} Número de votaciones elegibles según
+$(\param{T_v},\param{T_e})$:
+\begin{center}\small
+\begin{tabular}{r|rrrrr}
+\toprule
+$\param{T_v}\backslash\param{T_e}$ & 10 & 25 & 50 & 75 & 100 \\
+\midrule
+200 & \phantom{0}95 & 252 & 565 & 913 & 1\,200 \\
+250 & \phantom{0}25 & \phantom{0}81 & 193 & 328 & \phantom{0,}440 \\
+\textbf{300} & \phantom{0}\textbf{11} & \phantom{0}\textbf{36} & \phantom{00}\textbf{79} & 118 & \phantom{0,}155 \\
+350 & \phantom{00}3 & \phantom{0}14 & \phantom{00}24 & \phantom{0}47 & \phantom{0,0}55 \\
+400 & \phantom{00}2 & \phantom{00}7 & \phantom{00}11 & \phantom{0}19 & \phantom{0,0}20 \\
+\bottomrule
+\end{tabular}
+\end{center}
+En el ajuste de producción $(300,50)$, $79$ votaciones pasan: el repliegue (b) no se
+activa. La selección es sensible a ambos umbrales, como cabía esperar (es un filtro,
+no un estimador).
+
+\paragraph{(d)--(e) Literatura y límites.} Enfoque puramente descriptivo: se muestra
+\emph{quién vota como quién} en las votaciones ajustadas, sin modelo. Límite
+principal: una votación \og{}ajustada en votos\fg{} puede serlo por baja
+concurrencia asimétrica tanto como por una verdadera fractura.
+
+\subsection{Respuestas ministeriales \og{}tipo\fg{}}\label{sec:templates-es}
+
+\paragraph{(a) Definición.} Para cada respuesta escrita $q$ cuyo texto en bruto
+supera los $200$ caracteres, se normaliza (supresión HTML, espacios), se retira
+eventualmente la fórmula de cortesía inicial, se pasa a minúsculas: $t_q$. La
+respuesta se descarta si $|t_q|<100$. La \emph{clave de prefijo} es
+$\pi_L(q)=t_q[1:L]$ con $L=250$. Una \og{}respuesta tipo\fg{} es un prefijo
+compartido por al menos $m=3$ respuestas distintas. La \emph{tasa de respuestas
+tipo} es
+\[
+\rho \;=\; \frac{1}{|Q_{\text{eleg}}|}\sum_{\pi \,:\, |\{q:\pi_L(q)=\pi\}|\ge m} \big|\{q:\pi_L(q)=\pi\}\big|.
+\]
+En la instantánea, $|Q_{\text{eleg}}|=10\,766$ y $\rho=27{,}9~\%$.
+
+\paragraph{(b)--(c) Parámetros y sensibilidad.} Rejilla de la tasa $\rho$ (en \%)
+según la longitud de prefijo $L$ y el umbral de ocurrencias $m$:
+\begin{center}\small
+\begin{tabular}{r|rrrr}
+\toprule
+$L\backslash m$ & 2 & \textbf{3} & 5 & 10 \\
+\midrule
+100  & 42,1 & 31,6 & 23,1 & 13,4 \\
+\textbf{250}  & 37,0 & \textbf{27,9} & 20,3 & 11,6 \\
+500  & 33,7 & 24,6 & 17,2 & \phantom{0}9,9 \\
+1000 & 30,2 & 22,1 & 15,3 & \phantom{0}9,0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+La tasa es \emph{fuertemente sensible al umbral $m$} (cociente $\approx 3$--$4$
+entre $m=2$ y $m=10$) y \emph{moderadamente sensible a $L$} (de $\approx 32~\%$ a
+$\approx 22~\%$ con $m$ fijo). En este corpus, retirar la fórmula de cortesía no
+tiene \emph{ningún} efecto (las variantes \og{}con\fg{} y \og{}sin\fg{} retirada
+coinciden exactamente, el texto almacenado no empieza por esas fórmulas). El valor
+mostrado en el sitio debe, pues, leerse como \emph{un} punto de una familia de
+medidas, no como una constante: la formulación honesta es \og{}$\approx 28~\%$ de
+las respuestas comparten un prefijo de $250$~caracteres con al menos otras dos\fg{}.
+
+\paragraph{(d) Literatura.} Las preguntas parlamentarias como instrumento de
+control, y sus respuestas como objeto de estudio, son tratadas por
+Wiberg~\cite{wiberg1995}, Russo-Wiberg~\cite{rw2010}, Martin~\cite{martin2011}. La
+detección de respuestas estandarizadas por agrupamiento de prefijos es una
+heurística \emph{casera}, próxima a la detección de \og{}boilerplate\fg{}; no es una
+medida validada de \og{}lenguaje de madera\fg{}.
+
+\paragraph{(e) Límites.} (i)~Un prefijo común es una condición \emph{necesaria} pero
+no \emph{suficiente} de una respuesta \og{}vacía\fg{}: dos respuestas pueden
+compartir un encabezado de encuadre y luego divergir por completo. (ii)~El umbral
+$m=3$ y la longitud $L=250$ son arbitrarios (cf.~rejilla). (iii)~El corpus se limita
+a las respuestas publicadas de más de $200$ caracteres; las preguntas sin respuesta
+no entran en el denominador de $\rho$.
+
+\subsection{Absentismo estratégico}\label{sec:absence-es}
+
+\paragraph{(a) Definición.} Entre las votaciones con $\text{emitidos}(v)\ge \param{T_v}=200$,
+se dice que $v$ es \emph{divisiva} si
+$|\mathrm{a\_favor}(v)-\mathrm{en\_contra}(v)|/\text{emitidos}(v)<\param{c}=0{,}10$,
+\emph{consensual} si $>\param{C}=0{,}50$, en otro caso sin clasificar. Para un
+diputado $d$, sea $\mathrm{pres}_{div}(d)$ (resp.\ $\mathrm{pres}_{con}(d)$) la
+\emph{proporción} de votaciones divisivas (resp.\ consensuales) en las que $d$ ha
+emitido un voto. Se pone $\mathrm{gap}(d)=\mathrm{pres}_{con}(d)-\mathrm{pres}_{div}(d)$
+(en puntos) y $\mathrm{ratio}(d)=\mathrm{pres}_{con}(d)/\mathrm{pres}_{div}(d)$. Se
+muestra si $d$ está en ejercicio y $\mathrm{tot}_{div}(d)\ge \param{T_{div}}=30$.
+
+\paragraph{(b)--(c) Parámetros y sensibilidad.} Cuatro umbrales
+($\param{T_v},\param{c},\param{C},\param{T_{div}}$). Los valores exactos de las
+$4^4$ combinaciones exploradas figuran en el anexo~\ref{sec:annexes-es}; se observa
+que la mediana del \emph{gap} está cerca de $0$ — la mayoría de los diputados tienen
+una presencia similar en votaciones divisivas y consensuales — y que solo los
+\emph{outliers} tienen un \emph{gap} marcado, cuya amplitud varía de $\approx 13$ a
+$\approx 31$ puntos según los umbrales.
+
+\paragraph{(d)--(e) Literatura y límites.} La idea se relaciona con la literatura
+sobre el \emph{shirking} legislativo y la participación selectiva en los votos.
+Límites fuertes: (i)~no votar $\ne$ estar ausente — un diputado presente puede
+abstenerse de participar; (ii)~\og{}divisiva\fg{} se define por el \emph{resultado}
+del voto, no por su relevancia política \emph{a priori}; (iii)~un \emph{gap}
+positivo tiene muchas causas no estratégicas (agenda, enfermedad, circunscripción
+lejana). Una señal a explorar, no un veredicto.
+
+\subsection{Enmiendas \og{}fantasma\fg{}}\label{sec:fantomes-es}
+
+\paragraph{(a) Definición.} Para el primer firmante $d$, sobre el conjunto de sus
+enmiendas:
+\[
+\begin{aligned}
+\mathrm{defendidas}(d) &= \big|\{a : \mathrm{sort}(a)\in\{\text{Aprobada, Rechazada, Retirada, Discutida}\}\}\big|,\\[2pt]
+\mathrm{fantasma}(d) &= \big|\{a : \mathrm{sort}(a)=\text{No defendida, o vacío}\}\big|,\\[2pt]
+\mathrm{pct\_fantasma}(d) &= \mathrm{fantasma}(d)\,/\,\mathrm{total}(d).
+\end{aligned}
+\]
+Se muestra si $\mathrm{total}(d)\ge \param{T_a}=50$; ordenado por
+$\mathrm{pct\_fantasma}$ decreciente.
+
+\paragraph{(b)--(c) Parámetros y sensibilidad.} Censo de los códigos \og{}sort\fg{}
+(porcentaje del total de enmiendas): Rechazada 22,9~\%; Inadmisible 16,3~\%; En
+tramitación 14,1~\%; Aprobada 13,0~\%; Retirada 10,2~\%; Discutida 9,0~\%; Decaída
+8,7~\%; No defendida 5,9~\%; Borrada $\approx$0~\%. (Ninguna enmienda tiene un sort
+vacío o nulo en la instantánea.) Por tanto $\mathrm{fantasma}$ se reduce en la
+práctica a \og{}No defendida\fg{} ($5{,}9~\%$), $\mathrm{defendidas}$ cubre
+$\approx 55~\%$, y el resto (Inadmisible, En tramitación, Decaída) no se cuenta
+\emph{ni} como defendida \emph{ni} como fantasma. Efecto del umbral $\param{T_a}$:
+\begin{center}\small
+\begin{tabular}{rrrrr}
+\toprule
+$\param{T_a}$ & autores elegibles & de los cuales en ejercicio & $\overline{\mathrm{pct\_fant.}}$ & $\mathrm{pct\_fant.}^{\max}$ \\
+\midrule
+10  & 558 & 513 & 7,4 & 61,5 \\
+20  & 530 & 491 & 7,2 & 52,4 \\
+\textbf{50}  & \textbf{439} & \textbf{412} & \textbf{6,5} & \textbf{50,0} \\
+100 & 313 & 300 & 6,6 & 50,0 \\
+200 & 167 & 163 & 5,8 & 34,7 \\
+\bottomrule
+\end{tabular}
+\end{center}
+La media de la tasa es estable ($\approx 6$--$7{,}5~\%$); el \emph{máximo} decrece
+con el umbral (los valores extremos los llevan autores de bajo volumen). Una
+\emph{vista continua} (diagrama de dispersión $\mathrm{total}\times\mathrm{pct\_fantasma}$,
+sin umbral) se proporciona en el depósito para no ocultar esta dependencia.
+
+\paragraph{(d)--(e) Literatura y límites.} Sin literatura directa; cuantificamos una
+asimetría entre \emph{presentación} y \emph{defensa} de enmiendas. Límites: (i)~la
+categoría \og{}No defendida\fg{} también cubre restricciones de tiempo en el pleno,
+independientes de la voluntad del autor; (ii)~la elección de incluir
+\og{}Discutida\fg{} en \og{}defendida\fg{} y de excluir \og{}Decaída\fg{} es
+discutible (la rejilla de sensibilidad sobre la definición de \og{}defendida\fg{}
+está en el depósito); (iii)~\og{}primer firmante\fg{} $\ne$ \og{}autor real\fg{} en
+el caso de enmiendas colectivas.
+
+\subsection{Plazos de respuesta ministeriales y clasificaciones}\label{sec:delais-es}
+
+\paragraph{(a) Definición.} Para una pregunta $q$, $\mathrm{plazo}(q)$ es el número
+de días entre la presentación y la respuesta (indefinido si no se responde). Para un
+ministerio (en el sentido del \og{}ministerio interpelado\fg{} corto) $\mu$:
+\[
+\overline{\mathrm{plazo}}(\mu)=\operatorname*{media}_{q:\,\mathrm{plazo}(q)\ \text{definido}}\mathrm{plazo}(q),\qquad
+\mathrm{tasa\_resp}(\mu)=\frac{|\{q:\text{estado}=\text{con respuesta}\}|}{|\{q\ \text{dirigidas a }\mu\}|}.
+\]
+Se muestra si $|\{q\}|\ge \param{T_q}=30$ \emph{y} $|\{q:\text{estado}=\text{con respuesta}\}|\ge \param{T_r}=5$.
+La tasa de respuesta se muestra junto al plazo: un plazo corto no significa lo mismo
+si solo $1$ pregunta de cada $10$ ha obtenido respuesta.
+
+\paragraph{(b)--(c) Parámetros y sensibilidad.} Número de ministerios retenidos
+según $(\param{T_q},\param{T_r})$: $(10,1)\to 73$; $(20,*)\to 62$; $(30,*)\to 57$;
+$(50,*)\to 52$; $(100,*)\to 40$. El umbral $\param{T_r}$ es casi inoperante (un
+ministerio que recibe $\ge 30$ preguntas casi siempre ha respondido $\ge 5$).
+
+\paragraph{(d)--(e) Literatura y límites.} Cf.~§\ref{sec:templates-es} para las
+preguntas como objeto de estudio. Límites: la media es sensible a los valores
+extremos (una respuesta a $700$~días arrastra la media); el \og{}ministerio
+interpelado\fg{} puede diferir del \og{}ministerio asignado\fg{} que efectivamente
+responde.
+
+\subsection{Indicadores derivados simples}\label{sec:simples-es}
+
+\paragraph{(a) Actividad acumulada.} $\mathrm{act}(d)=n_Q(d)+n_A(d)+n_V(d)$
+(preguntas formuladas $+$ enmiendas presentadas $+$ votos emitidos).
+\emph{Advertencia estructural}: $n_V$ es de un orden de magnitud superior a $n_Q$ y
+$n_A$ (un diputado asiduo emite miles de votos pero presenta decenas de enmiendas y
+formula decenas de preguntas); el índice acumulado está, pues, \emph{mecánicamente
+dominado por la presencia en las votaciones}. El sitio lo acompaña sistemáticamente
+de las subclasificaciones aisladas (solo preguntas, solo enmiendas, solo presencia).
+
+\paragraph{(b) Tasa de aprobación de las enmiendas.} $\mathrm{aprobadas}(d)/\mathrm{total}(d)$
+(por diputado o por grupo).
+
+\paragraph{(c) Tasa de respuesta a las preguntas.} cf.~§\ref{sec:delais-es}.
+
+\paragraph{(d) Edad, antigüedad.} Derivadas de la fecha de nacimiento y de la fecha
+de inicio del mandato. Triviales.
+
+\paragraph{(e) Constructor de rankings parametrizables.} El sitio ofrece una
+treintena de \og{}métricas\fg{} combinables con filtros opcionales (por grupo,
+período, tipo de texto, etc.). Todas son \emph{re-exposiciones} de las primitivas
+anteriores (recuentos, ratios, medias); no hay ningún método adicional.
+
+\paragraph{(f) Estadísticas por circunscripción.} $\mathrm{participación}=\mathrm{votantes}/\mathrm{inscritos}$,
+población (INSEE), inscritos (Ministerio del Interior), unidos por
+$(\text{código de departamento},\ \text{número de circunscripción})$. Cobertura en
+la instantánea: $566$ circunscripciones con población INSEE (las $11$
+circunscripciones de los franceses en el extranjero no la tienen), $577$ con
+inscritos.
+
+\section{Reproducibilidad}\label{sec:repro-es}
+\begin{itemize}
+  \item \textbf{Código de la aplicación}: público, con licencia MIT
+        (\href{https://github.com/RogericBot/577deputes}{github.com/RogericBot/577deputes}).
+        La base de datos y las fotografías no se redistribuyen; se reconstruyen con
+        el comando \code{anqp bootstrap} (descarga e ingestión de las fuentes).
+  \item \textbf{Cachés derivados}: las tablas \code{deputy\_discipline\_cache},
+        \code{groupe\_discipline\_cache}, \code{deputy\_amd\_cache},
+        \code{groupe\_amd\_cache}, \code{scrutin\_groupes}, \code{amendement\_clusters},
+        \code{circo\_stats} se recalculan en la ingestión; no contienen nada que no
+        derive de las fuentes.
+  \item \textbf{Análisis de sensibilidad}: el script \code{scripts/methodo\_sensitivity.py}
+        (solo biblioteca estándar, solo lectura) reproduce todas las tablas de este
+        documento; está adjunto al depósito Zenodo con sus salidas (CSV y Markdown).
+        Todos los sorteos aleatorios usan una semilla fija.
+  \item \textbf{Instantánea}: las cifras de este documento corresponden a una copia
+        de la base tomada para su redacción (volumen en §1.3); pueden diferir
+        ligeramente del estado actual del sitio, que se actualiza a diario.
+\end{itemize}
+
+\section{Límites generales y sesgos conocidos}\label{sec:limites-es}
+\begin{enumerate}[label=L\arabic*.]
+  \item \textbf{Perímetro de las votaciones.} Solo existen en los datos las
+        votaciones públicas nominales celebradas en el pleno. Las votaciones a mano
+        alzada y las votaciones en comisión no figuran. Todo indicador de voto
+        (disciplina, cohesión, absentismo, coaliciones) hereda este límite. Además,
+        la Asamblea vota muy a menudo con solo una fracción del hemiciclo presente
+        (mediana $\approx 150$ votantes de $577$): un recuento bajo refleja la
+        concurrencia de ese día, no un voto truncado, y no se exige quórum para la
+        mayoría de los votos.
+  \item \textbf{\og{}Autor\fg{} de una enmienda.} El campo usado es el \emph{primer
+        firmante}; para una enmienda colectiva no refleja necesariamente la
+        redacción.
+  \item \textbf{Legislaturas a caballo.} Algunos expedientes abiertos bajo la
+        XVI\textsuperscript{a} legislatura y continuados bajo la XVII\textsuperscript{a}
+        están asignados a su legislatura de origen; de ahí pequeñas discrepancias
+        entre contadores según el perímetro elegido.
+  \item \textbf{Carácter heurístico de las tipologías.} \og{}Presentación masiva\fg{},
+        \og{}convergencia\fg{}, \og{}amplificación\fg{}, \og{}reutilización\fg{},
+        \og{}respuesta tipo\fg{} son etiquetas definidas por umbrales redondos, no
+        categorías teóricas.
+  \item \textbf{Ninguna inferencia de intención.} Los indicadores describen
+        regularidades medibles. No dicen \emph{por qué}: una presentación masiva
+        puede enriquecer el debate o ralentizarlo; un \emph{gap} de presencia tiene
+        a menudo causas prosaicas; una respuesta con prefijo común puede ser
+        sustancial tras ese prefijo.
+  \item \textbf{Sin estimación de puntos ideales.} Ningún indicador produce una
+        escala izquierda-derecha ni un mapa espacial; la matriz de cohesión y el
+        diagrama ternario son solo acuerdos por pares re-proyectados.
+  \item \textbf{Dependencia de los productores de datos.} Una laguna, un retraso o
+        un cambio de formato en la Asamblea, el INSEE o el Ministerio del Interior se
+        repercute directamente; el sitio señala explícitamente cuándo una fuente no
+        está disponible en lugar de inventar.
+  \item \textbf{Instantánea.} El sitio se actualiza a diario; toda cifra citada está
+        fechada en el día de su cálculo.
+\end{enumerate}
+
+\section{Anexos}\label{sec:annexes-es}
+Las tablas completas siguientes se proporcionan también en CSV/Markdown en el
+depósito (un archivo por tabla, más \code{SUMMARY.md}).
+\begin{itemize}\small
+  \item \textbf{A1} umbral Jaccard sobre el conjunto completo; \textbf{A1bis}
+        histograma de las similitudes candidatas; \textbf{A2} $k$ y $\theta$ sobre
+        muestra (Jaccard exacto); \textbf{A3} curva LSH $P(s)=1-(1-s^r)^b$;
+        \textbf{A4} exposición a $L_{\max}$; \textbf{A4bis} umbral $s_{\min}$.
+  \item \textbf{B} umbrales de tipología; \textbf{B2} distribución de los tamaños de
+        clúster.
+  \item \textbf{C0} valores de \code{positionMajoritaire}; \textbf{C1} umbral de
+        disciplina.
+  \item \textbf{D} matriz de cohesión, efecto \og{}abstención compartida\fg{}.
+  \item \textbf{F} umbrales \og{}coaliciones por votación\fg{}.
+  \item \textbf{G} rejilla \og{}respuestas tipo\fg{} ($L\times m\times$ retirada de
+        las fórmulas).
+  \item \textbf{H} rejilla \og{}absentismo estratégico\fg{} ($\param{T_v}\times\param{c}\times\param{C}\times\param{T_{div}}$).
+  \item \textbf{I0} censo de los sorts; \textbf{I1} umbral fantasma; \textbf{I2}
+        vista continua (diagrama de dispersión).
+  \item \textbf{J} umbrales del filtro de ministerios; \textbf{K} cobertura de las
+        estadísticas de circunscripción.
+\end{itemize}

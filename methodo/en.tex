@@ -1,0 +1,632 @@
+%==============================================================================
+%  Part II — English version (full translation, mirrors Part I).
+%==============================================================================
+\clearpage
+\selectlanguage{english}
+\part{English version}
+\setcounter{section}{0}   % each language part is numbered 1, 2, 3, … on its own
+
+\section{Introduction and scope}
+
+\subsection{Object}
+\emph{577deputes.fr} is a \emph{local-first} web application: it downloads the
+official open datasets, ingests them into a SQLite database, and exposes browsing
+pages and derived indicators for the 17\textsuperscript{th} legislature of the
+French National Assembly (ongoing since July~2024). The application produces no
+primary data; everything it displays is either raw data taken as-is from a public
+source, or the result of a computation documented here.
+
+\subsection{Sources}
+\begin{itemize}
+  \item \textbf{National Assembly} (\href{https://data.assemblee-nationale.fr}{data.assemblee-nationale.fr},
+        \emph{Licence Ouverte~2.0}): actors, mandates and bodies; legislative files,
+        documents and procedural acts; amendments; recorded (nominal) public
+        ballots and individual votes; written, oral and questions to the
+        Government; sitting agenda and verbatim records.
+  \item \textbf{INSEE}: legal population by legislative constituency.
+  \item \textbf{Ministry of the Interior} (data.gouv.fr): registered voters,
+        turnout and abstention by constituency (2024 legislative elections).
+\end{itemize}
+The Assembly datasets are refreshed daily via conditional requests
+(ETag / Last-Modified); a download failure does not affect the other sources.
+
+\subsection{Volume (snapshot used for this document)}
+\begin{center}\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+Deputies indexed (of which 577 currently sitting) & $\approx 630$ \\
+Parliamentary questions & $\approx 17\,000$ \\
+\quad of which with a published answer $>200$ characters & $10\,766$ \\
+Amendments (17\textsuperscript{th} legislature) & $108\,115$ \\
+Recorded public ballots & $6\,490$ \\
+Individual votes & $1\,043\,305$ \\
+(group, ballot) pairs with a majority position & $77\,748$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{What is out of scope}
+\begin{itemize}
+  \item \textbf{Show-of-hands votes} and \textbf{committee votes}: the
+        \og{}Scrutins\fg{} dataset only contains recorded nominal ballots held in
+        the plenary chamber. All cohesion, discipline and absenteeism figures rest
+        on that perimeter (cf.~§\ref{sec:limites-en}).
+  \item \textbf{Files opened under the 16\textsuperscript{th} legislature} and
+        continued under the 17\textsuperscript{th}: they are indexed but attached
+        to their legislature of origin, hence small discrepancies between counters.
+  \item \textbf{Intent inference}: no indicator in this document claims to
+        establish a motive. \og{}Mass filing\fg{}, \og{}phantom amendment\fg{},
+        \og{}strategic absenteeism\fg{} describe \emph{measurable regularities}, not
+        designs.
+\end{itemize}
+
+\section{Notation and conventions}\label{sec:notations-en}
+We write $J(A,B) = |A\cap B| / |A\cup B|$ for the Jaccard coefficient of two sets.
+For a ballot $v$, $\mathrm{for}(v)$, $\mathrm{against}(v)$, $\mathrm{abst}(v)$ are
+the official counts and $\text{cast}(v)=\mathrm{for}(v)+\mathrm{against}(v)+\mathrm{abst}(v)$.
+For a parliamentary group $G$ and a ballot $v$, $p^\star(v,G)$ is the
+\emph{majority position} of the group as published by the Assembly (field
+\code{positionMajoritaire}), taking values in $\{\text{for},\text{against},\text{abstention}\}$.
+On the snapshot used, this field is populated for all $77\,748$ pairs $(G,v)$ and
+never takes any other value (47.9~\% \og{}for\fg{}, 46.8~\% \og{}against\fg{},
+5.3~\% \og{}abstention\fg{}): there is therefore, at our level, no exact tie to
+arbitrate.
+
+Each indicator subsection follows the same plan: \textbf{(a)~definition},
+\textbf{(b)~algorithm \& parameters}, \textbf{(c)~sensitivity}, \textbf{(d)~literature},
+\textbf{(e)~limitations}. The sensitivity figures come from the script
+\code{methodo\_sensitivity.py} run on the snapshot above; the full tables are in
+Appendix~\ref{sec:annexes-en} and in the deposit.
+
+\section{The indicators}
+
+\subsection{Near-duplicate amendment detection}\label{sec:clusters-en}
+
+\paragraph{(a) Definition.} We seek to group amendments whose operative text is
+\og{}essentially the same\fg{}, whether or not they share an author. For an
+amendment $a$ we build $S_a$, the set of word $k$-\emph{shingles} (sequences of
+$k$ consecutive words) of the normalised text, each hashed to 64~bits. Two
+amendments $a,a'$ are deemed near-identical if $J(S_a,S_{a'})\ge\theta$. A
+\emph{cluster} is a connected component (under the union of these pairs) of size
+$\ge 2$.
+
+\paragraph{(b) Algorithm \& parameters.}
+\begin{enumerate}[label=\arabic*.]
+  \item \emph{Normalisation}: strip HTML tags; Unicode decomposition (NFKD) and
+        removal of diacritics; lowercasing; removal of any character outside
+        \texttt{[a-z0-9 ]}; whitespace collapse; truncation to $L_{\max}=12\,000$
+        characters.
+  \item \emph{Shingling}: $k = 5$; $S_a=\{h(w_i\cdots w_{i+k-1})\}$ with $h$ a
+        64-bit BLAKE2b hash. Amendment discarded if $|S_a| < s_{\min}=8$.
+  \item \emph{MinHash signature}: $K=64$ hash functions $g_j(x)=x\oplus\sigma_j$
+        ($\sigma_j$ deterministic seeds), signature $\mathrm{sig}_j(a)=\min_{x\in S_a} g_j(x)$.
+  \item \emph{LSH banding}: the signature is split into $b=16$ bands of $r=4$
+        components; $a$ and $a'$ are \emph{candidates} if they coincide on at
+        least one band. The probability that a pair of true similarity $s$ becomes
+        a candidate is $P(s)=1-(1-s^{\,r})^{b}$ (S-curve, threshold
+        $\approx (1/b)^{1/r}\approx 0.55$).
+  \item \emph{Verification}: for each candidate pair, compute the exact Jaccard on
+        $S_a$, $S_{a'}$; pair kept if $J\ge\theta=0.80$.
+  \item \emph{Clustering}: union-find on the kept pairs; clusters of size $\ge 2$.
+\end{enumerate}
+On the snapshot: $62\,476$ amendments pass the $s_{\min}$ threshold; we obtain
+$\approx 9\,460$ clusters grouping $28\,124$ amendments (the production database
+records $28\,055$ — the $0.25~\%$ gap comes from a bucket-size guard introduced in
+the verification script, and constitutes our reproducibility check).
+
+\paragraph{(c) Sensitivity.}
+\emph{Threshold $\theta$} (full set, production LSH):
+\begin{center}\small
+\begin{tabular}{rrrr}
+\toprule
+$\theta$ & pairs kept & clusters & clustered amendments (\%) \\
+\midrule
+0.70 & 180\,407 & 9\,638 & 32\,953 \;(52.8~\%) \\
+0.75 & 147\,438 & 9\,334 & 30\,794 \;(49.3~\%) \\
+0.78 & \phantom{0}88\,007 & 9\,649 & 29\,159 \;(46.7~\%) \\
+\textbf{0.80} & \phantom{0}\textbf{60\,381} & \textbf{9\,461} & \textbf{28\,124 \;(45.0~\%)} \\
+0.82 & \phantom{0}54\,380 & 9\,253 & 26\,834 \;(43.0~\%) \\
+0.85 & \phantom{0}43\,701 & 9\,023 & 25\,212 \;(40.4~\%) \\
+0.90 & \phantom{0}34\,480 & 8\,440 & 22\,782 \;(36.5~\%) \\
+0.95 & \phantom{0}30\,679 & 7\,840 & 20\,934 \;(33.5~\%) \\
+\bottomrule
+\end{tabular}
+\end{center}
+Sensitivity is \emph{moderate}: $\pm0.05$ around $0.80$ shifts the number of
+clustered amendments by $\approx\pm10$ to $\pm15~\%$. But the distribution of
+candidate-pair similarities (Appendix~\ref{sec:annexes-en}) shows that $0.80$
+falls in a \emph{transition region}: there is a large mass of pairs in
+$[0.75;0.85)$ (amendments sharing much boilerplate without being copies), whereas
+near-verbatim copies form a distinct peak above $0.95$. A stricter threshold
+($0.90$) would keep only near-verbatim copies; a looser one ($0.70$--$0.75$) would
+also absorb heavy rewrites. The choice of $0.80$ is a deliberate compromise, not a
+\og{}natural\fg{} point of the cloud. For $\theta<0.80$, the recall of candidate
+pairs by the 16$\times$4 LSH declines (see below): the displayed counts are then
+lower bounds.
+
+\emph{Shingle size $k$} (sample of $\approx 3\,500$ amendments, exact Jaccard on
+all pairs, $\theta=0.80$): $k=3 \Rightarrow 12.4~\%$ clustered; $k=5 \Rightarrow
+8.3~\%$; $k=7 \Rightarrow 6.5~\%$. Shorter shingles are more permissive; $k=5$ is
+the median setting.
+
+\emph{LSH configuration} ($b\times r$): $P(s)=1-(1-s^r)^b$. For the production
+setting 16$\times$4: $P(0.80)=0.9998$, $P(0.70)=0.988$, $P(0.50)=0.64$. The LSH
+only affects the \emph{recall} of candidate pairs; the final \emph{precision} is
+guaranteed by the exact Jaccard verification that follows. At the production
+threshold, recall is therefore near-perfect.
+
+\emph{Truncation $L_{\max}$ and floor $s_{\min}$}: only $192$ amendments
+($0.18~\%$) exceed $12\,000$ characters after normalisation; raising $s_{\min}$
+from $8$ to $50$ would exclude $38~\%$ of the currently kept amendments (the value
+$8$ is deliberately permissive, to keep short operative texts).
+
+\paragraph{(d) Literature.} The shingle representation and the estimation of
+Jaccard similarity by min-wise hashing are due to Broder~\cite{broder1997,broder2000};
+band-based blocking (LSH) follows Gionis-Indyk-Motwani~\cite{gionis1999} and the
+exposition of Leskovec-Rajaraman-Ullman~\cite{lru2014}. Application to detecting
+reuse of legislative text is explored notably by the \emph{Legislative Influence
+Detector}~\cite{burgess2016} and the work on the diffusion of \og{}model
+bills\fg{} (Hertel-Fernandez~\cite{hf2014}, Jansa et al.~\cite{jansa2019},
+Linder et al.~\cite{linder2020}). Our contribution is not methodological: it is
+the \emph{application} of known building blocks to the Assembly's amendment stream,
+with a descriptive typology.
+
+\paragraph{(e) Limitations.} (i)~Normalisation \emph{truncates} beyond $12\,000$
+characters: two very long amendments are compared only on their prefix.
+(ii)~Word shingling ignores order beyond the window $k$: a reordering of
+paragraphs can collapse the Jaccard. (iii)~The threshold $0.80$ is in the
+ambiguous region of the cloud: the exact cluster boundary is conventional.
+(iv)~A \og{}cluster\fg{} says nothing about intentional coordination: the same
+template may circulate via an association federation, a union, an activist site,
+without any concertation between deputies.
+
+\subsection{Cluster typology}\label{sec:typo-en}
+
+\paragraph{(a) Definition.} For a cluster $C$, let $n(C)=|C|$ be its size and
+$g(C)$ the number of distinct parliamentary groups among its amendments. We
+classify:
+\[
+\tau(C)=\begin{cases}
+\text{mass filing} & \text{if } n(C)\ge \param{T_{masse}}=15,\\[2pt]
+\text{inter-group convergence} & \text{otherwise if } g(C)\ge 2,\\[2pt]
+\text{intra-group amplification} & \text{otherwise if } g(C)\le 1 \text{ and } n(C)\ge \param{T_{ampl}}=3,\\[2pt]
+\text{simple reuse} & \text{otherwise.}
+\end{cases}
+\]
+Size always takes precedence; no intent is inferred (the internal label
+\og{}obstruction\fg{} was neutralised to \og{}mass filing\fg{}).
+
+\paragraph{(b) Algorithm \& parameters.} Direct computation on the cluster table
+($\param{T_{masse}}=15$, $\param{T_{ampl}}=3$). On the snapshot (clusters from
+$\theta=0.80$): $91$ \og{}mass filing\fg{} clusters ($2\,578$ amendments),
+$4\,314$ \og{}convergence\fg{} ($13\,834$), $773$ \og{}amplification\fg{}
+($3\,146$), $4\,283$ \og{}reuse\fg{} ($8\,566$).
+
+\paragraph{(c) Sensitivity.}
+\begin{center}\small
+\begin{tabular}{rr rr rr rr}
+\toprule
+$\param{T_{masse}}$ & $\param{T_{ampl}}$ & \multicolumn{2}{c}{mass filing} & \multicolumn{2}{c}{convergence} & \multicolumn{2}{c}{amplification} \\
+ & & cl. & amdt & cl. & amdt & cl. & amdt \\
+\midrule
+10 & 3 & 203 & 3\,875 & 4\,226 & 12\,812 & 749 & 2\,871 \\
+\textbf{15} & \textbf{3} & \textbf{91} & \textbf{2\,578} & \textbf{4\,314} & \textbf{13\,834} & \textbf{773} & \textbf{3\,146} \\
+20 & 3 & 43 & 1\,776 & 4\,352 & 14\,472 & 783 & 3\,310 \\
+30 & 3 & 19 & 1\,218 & 4\,370 & 14\,880 & 789 & 3\,460 \\
+50 & 3 & \phantom{0}7 & \phantom{0,}784 & 4\,377 & 15\,121 & 794 & 3\,653 \\
+\midrule
+15 & 2 & 91 & 2\,578 & 4\,314 & 13\,834 & 5\,056 & 11\,712 \\
+15 & 5 & 91 & 2\,578 & 4\,314 & 13\,834 & 160 & 1\,138 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The \emph{number} of \og{}mass filing\fg{} clusters is sensitive to
+$\param{T_{masse}}$ ($91$ down to $7$ between thresholds $15$ and $50$) but the
+\emph{volume} of amendments affected is less so; the $\param{T_{ampl}}$ threshold
+mostly shifts clusters between \og{}amplification\fg{} and \og{}reuse\fg{}. The
+size distribution is in Appendix~\ref{sec:annexes-en}.
+
+\paragraph{(d) Literature.} The typology is ad~hoc and descriptive; it belongs to
+the field studying \emph{parliamentary obstruction} and mass amendment filing as a
+debate tactic (cf.~Koger~\cite{koger2010} for the U.S. case; the Assembly's own
+Rules of Procedure regulate the \og{}joint discussion\fg{} of identical
+amendments).
+
+\paragraph{(e) Limitations.} Four boxes, round thresholds: a cluster of $14$
+identical amendments and one of $16$ fall on opposite sides of a boundary with no
+theoretical basis. The \og{}convergence\fg{} box does not distinguish a technical
+consensus from an opportunistic alliance.
+
+\subsection{Vote discipline (individual cohesion)}\label{sec:discipline-en}
+
+\paragraph{(a) Definition.} Let $G_d$ be the group of deputy $d$. Let $V_d$ be the
+set of ballots where $d$ cast a vote $p_d(v)\in\{\text{for},\text{against},\text{abstention}\}$
+\emph{and} where $p^\star(v,G_d)$ is defined. We set
+\[
+\mathrm{cast}(d)=|V_d|,\quad
+\mathrm{aligned}(d)=\big|\{v\in V_d : p_d(v)=p^\star(v,G_d)\}\big|,\quad
+\mathrm{discipline}(d)=\frac{\mathrm{aligned}(d)}{\mathrm{cast}(d)}.
+\]
+Shown in rankings only if $\mathrm{cast}(d)\ge 50$ (or $\ge 100$ for the
+\og{}dissidents\fg{} list, sorted by ascending discipline); unaffiliated (NI)
+deputies are excluded.
+
+\paragraph{(b) Algorithm \& parameters.} Everything rests on the official field
+$p^\star$: we do \emph{not} compute a group's majority position ourselves. On the
+snapshot, $\mathrm{discipline}$ has a mean of $\approx 91.9~\%$, a median of
+$\approx 92.5~\%$, a bottom decile of $\approx 85~\%$.
+
+\paragraph{(c) Sensitivity.} Effect of the cast-vote floor:
+\begin{center}\small
+\begin{tabular}{rrrrrr}
+\toprule
+floor & eligible & mean & median & $p_{10}$ & $p_{90}$ \\
+\midrule
+0   & 639 & 91.92 & 92.56 & 84.92 & 98.30 \\
+20  & 628 & 91.87 & 92.50 & 84.93 & 98.25 \\
+\textbf{50}  & \textbf{623} & \textbf{91.85} & \textbf{92.50} & \textbf{84.99} & \textbf{98.21} \\
+100 & 611 & 91.83 & 92.45 & 85.02 & 98.18 \\
+200 & 600 & 91.87 & 92.46 & 85.06 & 98.18 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The indicator is \emph{very robust} to the floor: the mean and quantiles move by
+only hundredths of a point between floors $0$ and $200$. The choice $\ge 50$ is
+therefore not a sensitive parameter — it only avoids displaying a \og{}100~\%\fg{}
+based on three votes.
+
+\paragraph{(d) The \og{}circular bias\fg{}.} The position $p^\star(v,G_d)$ is the
+plurality of the votes of $G_d$'s members, and $d$ is one of them: $d$ is thus
+compared, in part, to a position $d$ helped define. This is a \emph{real} bias but
+(i)~it is not of our making — it is the Assembly's official convention;
+(ii)~for a group of $50$ to $120$ members, the weight of one individual vote in
+the plurality is bounded by $\le 2~\%$; (iii)~the case of an exact tie, which would
+make the plurality ambiguous, is arbitrated upstream by the Assembly and never
+appears in the data (the field $p^\star$ is always populated and always in
+$\{\text{for},\text{against},\text{abstention}\}$, cf.~§\ref{sec:notations-en}).
+
+\paragraph{(e) Literature.} The discipline so defined is the \emph{individual}
+(per-deputy) version of party cohesion indices: Rice index~\cite{rice1925},
+the Agreement Index of Hix-Noury-Roland~\cite{hnr2005,hnr2007}, Carey's
+discussion~\cite{carey2007} of \og{}competing principals\fg{}. It does \emph{not}
+estimate ideal points: for that one would need NOMINATE-type or \emph{Optimal
+Classification} methods (Poole-Rosenthal~\cite{pr1997}, Poole~\cite{poole2005}),
+out of scope.
+
+\paragraph{(e') Limitations.} (i)~Perimeter restricted to recorded nominal
+ballots: the \og{}discipline\fg{} measured is that of \emph{cast and recorded}
+votes, not group unity in general. (ii)~An abstention consistent with the group's
+position counts as \og{}aligned\fg{}. (iii)~An often-absent deputy has a low
+$\mathrm{cast}$: their discipline is measured on few cases (hence the floor).
+
+\subsection{Inter-group cohesion matrix}\label{sec:matrice-en}
+
+\paragraph{(a) Definition.} For two groups $G_1,G_2$, let $V_{12}$ be the set of
+ballots where both have a defined majority position. The cohesion is
+\[
+\mathrm{coh}(G_1,G_2)=\frac{\big|\{v\in V_{12}:p^\star(v,G_1)=p^\star(v,G_2)\}\big|}{|V_{12}|},
+\qquad \mathrm{coh}(G,G)=1.
+\]
+
+\paragraph{(b) Algorithm \& parameters.} No free parameter; a self-join on the
+majority-position table.
+
+\paragraph{(c) Sensitivity.} A debatable choice: \og{}abstention $=$ abstention\fg{}
+counts as agreement. Recomputing the matrix without the ballots where both groups
+abstain, the mean absolute difference is $0.21$~point and the maximum $0.83$~point.
+The effect is therefore \emph{negligible}.
+
+\paragraph{(d) Literature.} It is an \emph{agreement} matrix between blocs in the
+sense of Hix-Noury-Roland~\cite{hnr2007}; it provides no one-dimensional ordering
+(for that, see the spatial methods cited in §\ref{sec:discipline-en}).
+
+\paragraph{(e) Limitations.} Cohesion computed on \emph{group positions}, not
+individual votes: a group split $51/49$ and a unanimous group count the same. Two
+\og{}against\fg{} votes for opposite reasons are indistinguishable from genuine
+agreement.
+
+\subsection{Ternary diagram of blocs}\label{sec:ternaire-en}
+
+\paragraph{(a) Definition.} Given three \emph{anchor} groups $A_1,A_2,A_3$ placed
+at the vertices of an equilateral triangle at positions $\mathbf{x}_{A_1},\mathbf{x}_{A_2},\mathbf{x}_{A_3}$,
+a group $G$ with cohesions $c_i=\mathrm{coh}(G,A_i)$ is placed at
+\[
+(\alpha,\beta,\gamma)=\frac{(c_1,c_2,c_3)}{c_1+c_2+c_3},\qquad
+\mathbf{x}_G=\alpha\,\mathbf{x}_{A_1}+\beta\,\mathbf{x}_{A_2}+\gamma\,\mathbf{x}_{A_3}.
+\]
+The default anchors are LFI, EPR, RN; the user can change them.
+
+\paragraph{(b)--(c) Algorithm \& sensitivity.} The only \og{}parameter\fg{} is the
+choice of the three anchors: the diagram is merely a \emph{re-projection} of the
+cohesion matrix §\ref{sec:matrice-en} onto three chosen axes, and changes with
+them.
+
+\paragraph{(d)--(e) Literature \& limitations.} A visualisation tool, with no claim
+of measurement: a group's position \emph{depends on the frame of reference}. Do
+not read the distances as ideological distances.
+
+\subsection{Coalitions by ballot (by topic)}\label{sec:coalitions-en}
+
+\paragraph{(a) Definition.} We select the \og{}highly attended and divisive\fg{}
+ballots: (a)~$\text{cast}(v)\ge \param{T_v}=300$ ($\approx 52~\%$ of the 577 seats);
+(b)~$|\mathrm{for}(v)-\mathrm{against}(v)|\le \param{T_e}=50$. We sort by (b)
+ascending then date descending and keep the top $N=10$; if fewer than $N/2$
+ballots pass, we relax criterion (b). For each retained ballot, we display each
+group's majority position.
+
+\paragraph{(b)--(c) Parameters \& sensitivity.} Number of eligible ballots by
+$(\param{T_v},\param{T_e})$:
+\begin{center}\small
+\begin{tabular}{r|rrrrr}
+\toprule
+$\param{T_v}\backslash\param{T_e}$ & 10 & 25 & 50 & 75 & 100 \\
+\midrule
+200 & \phantom{0}95 & 252 & 565 & 913 & 1\,200 \\
+250 & \phantom{0}25 & \phantom{0}81 & 193 & 328 & \phantom{0,}440 \\
+\textbf{300} & \phantom{0}\textbf{11} & \phantom{0}\textbf{36} & \phantom{00}\textbf{79} & 118 & \phantom{0,}155 \\
+350 & \phantom{00}3 & \phantom{0}14 & \phantom{00}24 & \phantom{0}47 & \phantom{0,0}55 \\
+400 & \phantom{00}2 & \phantom{00}7 & \phantom{00}11 & \phantom{0}19 & \phantom{0,0}20 \\
+\bottomrule
+\end{tabular}
+\end{center}
+At the production setting $(300,50)$, $79$ ballots pass: the fallback (b) is not
+triggered. The selection is sensitive to both thresholds, as expected (it is a
+filter, not an estimator).
+
+\paragraph{(d)--(e) Literature \& limitations.} A purely descriptive approach: we
+show \emph{who votes like whom} on close ballots, with no model. Major limitation:
+a ballot \og{}close in votes\fg{} may be so because of asymmetric low attendance as
+much as because of a real cleavage.
+
+\subsection{\og{}Template\fg{} ministerial answers}\label{sec:templates-en}
+
+\paragraph{(a) Definition.} For each written answer $q$ whose raw text exceeds
+$200$ characters, we normalise (strip HTML, collapse whitespace), optionally remove
+the leading salutation, lowercase: $t_q$. The answer is discarded if $|t_q|<100$.
+The \emph{prefix key} is $\pi_L(q)=t_q[1:L]$ with $L=250$. A \og{}template
+answer\fg{} is a prefix shared by at least $m=3$ distinct answers. The
+\emph{template rate} is
+\[
+\rho \;=\; \frac{1}{|Q_{\text{elig}}|}\sum_{\pi \,:\, |\{q:\pi_L(q)=\pi\}|\ge m} \big|\{q:\pi_L(q)=\pi\}\big|.
+\]
+On the snapshot, $|Q_{\text{elig}}|=10\,766$ and $\rho=27.9~\%$.
+
+\paragraph{(b)--(c) Parameters \& sensitivity.} Grid of the rate $\rho$ (in \%) by
+prefix length $L$ and occurrence threshold $m$:
+\begin{center}\small
+\begin{tabular}{r|rrrr}
+\toprule
+$L\backslash m$ & 2 & \textbf{3} & 5 & 10 \\
+\midrule
+100  & 42.1 & 31.6 & 23.1 & 13.4 \\
+\textbf{250}  & 37.0 & \textbf{27.9} & 20.3 & 11.6 \\
+500  & 33.7 & 24.6 & 17.2 & \phantom{0}9.9 \\
+1000 & 30.2 & 22.1 & 15.3 & \phantom{0}9.0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The rate is \emph{strongly sensitive to the threshold $m$} (ratio $\approx 3$--$4$
+between $m=2$ and $m=10$) and \emph{moderately sensitive to $L$} (from $\approx
+32~\%$ to $\approx 22~\%$ at fixed $m$). On this corpus, removing the salutation has
+\emph{no} effect (the \og{}with\fg{} and \og{}without\fg{} removal variants
+coincide exactly, the stored text not starting with such formulas). The value
+shown on the site should therefore be read as \emph{one} point of a family of
+measures, not as a constant: the honest phrasing is \og{}$\approx 28~\%$ of answers
+share a $250$-character prefix with at least two others\fg{}.
+
+\paragraph{(d) Literature.} Parliamentary questions as an oversight instrument, and
+their answers as an object of study, are treated by Wiberg~\cite{wiberg1995},
+Russo-Wiberg~\cite{rw2010}, Martin~\cite{martin2011}. Spotting standardised answers
+by prefix grouping is a \emph{home-grown} heuristic, akin to boilerplate detection;
+it is not a validated measure of \og{}officialese\fg{}.
+
+\paragraph{(e) Limitations.} (i)~A common prefix is a \emph{necessary} but not
+\emph{sufficient} condition for an \og{}empty\fg{} answer: two answers may share a
+framing header then diverge entirely. (ii)~The threshold $m=3$ and the length
+$L=250$ are arbitrary (cf.~grid). (iii)~The corpus is limited to published answers
+longer than $200$ characters; unanswered questions do not enter the denominator of
+$\rho$.
+
+\subsection{Strategic absenteeism}\label{sec:absence-en}
+
+\paragraph{(a) Definition.} Among ballots with $\text{cast}(v)\ge \param{T_v}=200$,
+$v$ is said \emph{divisive} if $|\mathrm{for}(v)-\mathrm{against}(v)|/\text{cast}(v)<\param{c}=0.10$,
+\emph{consensual} if $>\param{C}=0.50$, otherwise unclassified. For a deputy $d$,
+let $\mathrm{pres}_{cli}(d)$ (resp.\ $\mathrm{pres}_{con}(d)$) be the \emph{share}
+of divisive (resp.\ consensual) ballots where $d$ cast a vote. We set
+$\mathrm{gap}(d)=\mathrm{pres}_{con}(d)-\mathrm{pres}_{cli}(d)$ (in points) and
+$\mathrm{ratio}(d)=\mathrm{pres}_{con}(d)/\mathrm{pres}_{cli}(d)$. Shown if $d$ is
+currently sitting and $\mathrm{tot}_{cli}(d)\ge \param{T_{cli}}=30$.
+
+\paragraph{(b)--(c) Parameters \& sensitivity.} Four thresholds
+($\param{T_v},\param{c},\param{C},\param{T_{cli}}$). The exact values for the
+$4^4$ explored combinations are in Appendix~\ref{sec:annexes-en}; one observes that
+the median of the \emph{gap} is close to $0$ — most deputies have a similar
+attendance on divisive and consensual ballots — and that only outliers have a
+marked \emph{gap}, whose amplitude varies from $\approx 13$ to $\approx 31$ points
+depending on the thresholds.
+
+\paragraph{(d)--(e) Literature \& limitations.} The idea relates to the literature
+on legislative \emph{shirking} and selective participation in votes. Strong
+limitations: (i)~not voting $\ne$ being absent — a present deputy may decline to
+take part; (ii)~\og{}divisive\fg{} is defined by the \emph{outcome} of the vote,
+not by its political salience \emph{a priori}; (iii)~a positive \emph{gap} has many
+non-strategic causes (agenda, illness, distant constituency). A signal to explore,
+not a verdict.
+
+\subsection{\og{}Phantom\fg{} amendments}\label{sec:fantomes-en}
+
+\paragraph{(a) Definition.} For first signatory $d$, over all their amendments:
+\[
+\begin{aligned}
+\mathrm{defended}(d) &= \big|\{a : \mathrm{sort}(a)\in\{\text{Adopted, Rejected, Withdrawn, Discussed}\}\}\big|,\\[2pt]
+\mathrm{phantom}(d) &= \big|\{a : \mathrm{sort}(a)=\text{Not defended, or empty}\}\big|,\\[2pt]
+\mathrm{pct\_phantom}(d) &= \mathrm{phantom}(d)\,/\,\mathrm{total}(d).
+\end{aligned}
+\]
+Shown if $\mathrm{total}(d)\ge \param{T_a}=50$; sorted by descending
+$\mathrm{pct\_phantom}$.
+
+\paragraph{(b)--(c) Parameters \& sensitivity.} Census of \og{}sort\fg{} codes
+(share of all amendments): Rejected 22.9~\%; Inadmissible 16.3~\%; Pending 14.1~\%;
+Adopted 13.0~\%; Withdrawn 10.2~\%; Discussed 9.0~\%; Lapsed 8.7~\%; Not defended
+5.9~\%; Erased $\approx$0~\%. (No amendment has an empty/null sort on the snapshot.)
+So $\mathrm{phantom}$ reduces in practice to \og{}Not defended\fg{} ($5.9~\%$),
+$\mathrm{defended}$ covers $\approx 55~\%$, and the rest (Inadmissible, Pending,
+Lapsed) is counted \emph{neither} as defended \emph{nor} as phantom. Effect of the
+floor $\param{T_a}$:
+\begin{center}\small
+\begin{tabular}{rrrrr}
+\toprule
+$\param{T_a}$ & eligible authors & of which sitting & $\overline{\mathrm{pct\_phant.}}$ & $\mathrm{pct\_phant.}^{\max}$ \\
+\midrule
+10  & 558 & 513 & 7.4 & 61.5 \\
+20  & 530 & 491 & 7.2 & 52.4 \\
+\textbf{50}  & \textbf{439} & \textbf{412} & \textbf{6.5} & \textbf{50.0} \\
+100 & 313 & 300 & 6.6 & 50.0 \\
+200 & 167 & 163 & 5.8 & 34.7 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The mean rate is stable ($\approx 6$--$7.5~\%$); the \emph{maximum} decreases with
+the floor (extreme values are carried by low-volume authors). A \emph{continuous
+view} (scatter plot $\mathrm{total}\times\mathrm{pct\_phantom}$, without a floor) is
+provided in the deposit so as not to hide this dependence.
+
+\paragraph{(d)--(e) Literature \& limitations.} No direct literature; we quantify an
+asymmetry between \emph{filing} and \emph{defending} amendments. Limitations:
+(i)~the \og{}Not defended\fg{} category also covers time pressure in the chamber,
+independent of the author's will; (ii)~the choice to include \og{}Discussed\fg{}
+in \og{}defended\fg{} and to exclude \og{}Lapsed\fg{} is debatable (the sensitivity
+grid on the definition of \og{}defended\fg{} is in the deposit); (iii)~\og{}first
+signatory\fg{} $\ne$ \og{}actual author\fg{} for collective amendments.
+
+\subsection{Ministerial response delays and rankings}\label{sec:delais-en}
+
+\paragraph{(a) Definition.} For a question $q$, $\mathrm{delay}(q)$ is the number of
+days between filing and answer (undefined if unanswered). For a ministry (in the
+sense of the short \og{}questioned ministry\fg{}) $\mu$:
+\[
+\overline{\mathrm{delay}}(\mu)=\operatorname*{mean}_{q:\,\mathrm{delay}(q)\ \text{defined}}\mathrm{delay}(q),\qquad
+\mathrm{response\_rate}(\mu)=\frac{|\{q:\text{status}=\text{answered}\}|}{|\{q\ \text{addressed to }\mu\}|}.
+\]
+Shown if $|\{q\}|\ge \param{T_q}=30$ \emph{and} $|\{q:\text{status}=\text{answered}\}|\ge \param{T_r}=5$.
+The response rate is shown alongside the delay: a short delay does not mean the same
+thing if only $1$ question in $10$ received an answer.
+
+\paragraph{(b)--(c) Parameters \& sensitivity.} Number of ministries retained by
+$(\param{T_q},\param{T_r})$: $(10,1)\to 73$; $(20,*)\to 62$; $(30,*)\to 57$;
+$(50,*)\to 52$; $(100,*)\to 40$. The $\param{T_r}$ threshold is almost inoperative
+(a ministry receiving $\ge 30$ questions has almost always answered $\ge 5$).
+
+\paragraph{(d)--(e) Literature \& limitations.} Cf.~§\ref{sec:templates-en} for
+questions as an object of study. Limitations: the mean is sensitive to extreme
+values (one answer at $700$~days drags the mean up); the \og{}questioned
+ministry\fg{} may differ from the \og{}assigned ministry\fg{} that actually
+answers.
+
+\subsection{Simple derived indicators}\label{sec:simples-en}
+
+\paragraph{(a) Cumulative activity.} $\mathrm{act}(d)=n_Q(d)+n_A(d)+n_V(d)$
+(questions asked $+$ amendments filed $+$ votes cast). \emph{Structural warning}:
+$n_V$ is an order of magnitude larger than $n_Q$ and $n_A$ (a diligent deputy casts
+thousands of votes but files dozens of amendments and asks dozens of questions); the
+cumulative index is therefore \emph{mechanically dominated by attendance at
+ballots}. The site systematically accompanies it with the isolated sub-rankings
+(questions only, amendments only, attendance only).
+
+\paragraph{(b) Amendment adoption rate.} $\mathrm{adopted}(d)/\mathrm{total}(d)$
+(per deputy or per group).
+
+\paragraph{(c) Question response rate.} cf.~§\ref{sec:delais-en}.
+
+\paragraph{(d) Age, seniority.} Derived from the date of birth and the mandate
+start date. Trivial.
+
+\paragraph{(e) Parametrisable ranking builder.} The site offers some thirty
+\og{}metrics\fg{} combinable with optional filters (by group, period, text type,
+etc.). They are all \emph{re-expositions} of the primitives above (counts, ratios,
+means); there is no additional method.
+
+\paragraph{(f) Constituency statistics.} $\mathrm{turnout}=\mathrm{voters}/\mathrm{registered}$,
+population (INSEE), registered voters (Ministry of the Interior), joined by
+$(\text{department code},\ \text{constituency number})$. Coverage on the snapshot:
+$566$ constituencies with INSEE population (the $11$ constituencies for French
+citizens abroad have none), $577$ with registered voters.
+
+\section{Reproducibility}\label{sec:repro-en}
+\begin{itemize}
+  \item \textbf{Application code}: public, MIT-licensed
+        (\href{https://github.com/RogericBot/577deputes}{github.com/RogericBot/577deputes}).
+        The database and the photographs are not redistributed; they rebuild with
+        the command \code{anqp bootstrap} (download and ingest the sources).
+  \item \textbf{Derived caches}: the tables \code{deputy\_discipline\_cache},
+        \code{groupe\_discipline\_cache}, \code{deputy\_amd\_cache},
+        \code{groupe\_amd\_cache}, \code{scrutin\_groupes}, \code{amendement\_clusters},
+        \code{circo\_stats} are recomputed at ingestion time; they contain nothing
+        that does not derive from the sources.
+  \item \textbf{Sensitivity analyses}: the script \code{scripts/methodo\_sensitivity.py}
+        (standard library only, read-only) reproduces all the tables in this
+        document; it is attached to the Zenodo deposit with its outputs (CSV and
+        Markdown). All random draws use a fixed seed.
+  \item \textbf{Snapshot}: the figures in this document correspond to a copy of the
+        database taken for its writing (volume in §1.3); they may differ slightly
+        from the current state of the site, which updates daily.
+\end{itemize}
+
+\section{General limitations and known biases}\label{sec:limites-en}
+\begin{enumerate}[label=L\arabic*.]
+  \item \textbf{Ballot perimeter.} Only recorded nominal ballots held in the
+        plenary chamber exist in the data. Show-of-hands votes and committee votes
+        are not there. Every vote indicator (discipline, cohesion, absenteeism,
+        coalitions) inherits this limitation. Moreover, the Assembly very often
+        votes with only a fraction of the chamber present (median $\approx 150$
+        voters out of $577$): a low count reflects that day's attendance, not a
+        truncated vote, and there is no quorum required for most votes.
+  \item \textbf{Amendment \og{}author\fg{}.} The field used is the \emph{first
+        signatory}; for a collective amendment it does not necessarily reflect the
+        drafting.
+  \item \textbf{Straddling legislatures.} Some files opened under the
+        16\textsuperscript{th} legislature and continued under the
+        17\textsuperscript{th} are attached to their legislature of origin; hence
+        small discrepancies between counters depending on the perimeter chosen.
+  \item \textbf{Heuristic nature of the typologies.} \og{}Mass filing\fg{},
+        \og{}convergence\fg{}, \og{}amplification\fg{}, \og{}reuse\fg{},
+        \og{}template answer\fg{} are labels defined by round thresholds, not
+        theoretical categories.
+  \item \textbf{No intent inference.} The indicators describe measurable
+        regularities. They do not say \emph{why}: a mass filing may enrich the
+        debate or slow it down; an attendance \emph{gap} often has prosaic causes;
+        an answer with a common prefix may be substantive after that prefix.
+  \item \textbf{No ideal-point estimation.} No indicator produces a left-right scale
+        or a spatial map; the cohesion matrix and the ternary diagram are only
+        re-projected pairwise agreements.
+  \item \textbf{Dependence on the data producers.} A gap, a delay or a format change
+        at the Assembly, INSEE or the Ministry of the Interior propagates directly;
+        the site explicitly signals when a source is unavailable rather than
+        inventing.
+  \item \textbf{Snapshot.} The site updates daily; any cited figure is dated by the
+        day it was computed.
+\end{enumerate}
+
+\section{Appendices}\label{sec:annexes-en}
+The full tables below are also provided in CSV/Markdown in the deposit (one file per
+table, plus \code{SUMMARY.md}).
+\begin{itemize}\small
+  \item \textbf{A1} Jaccard threshold on the full set; \textbf{A1bis} histogram of
+        candidate similarities; \textbf{A2} $k$ and $\theta$ on a sample (exact
+        Jaccard); \textbf{A3} LSH curve $P(s)=1-(1-s^r)^b$; \textbf{A4} exposure to
+        $L_{\max}$; \textbf{A4bis} floor $s_{\min}$.
+  \item \textbf{B} typology thresholds; \textbf{B2} cluster size distribution.
+  \item \textbf{C0} values of \code{positionMajoritaire}; \textbf{C1} discipline
+        floor.
+  \item \textbf{D} cohesion matrix, \og{}shared abstention\fg{} effect.
+  \item \textbf{F} \og{}coalitions by ballot\fg{} thresholds.
+  \item \textbf{G} \og{}template answers\fg{} grid ($L\times m\times$ salutation
+        removal).
+  \item \textbf{H} \og{}strategic absenteeism\fg{} grid ($\param{T_v}\times\param{c}\times\param{C}\times\param{T_{cli}}$).
+  \item \textbf{I0} census of sorts; \textbf{I1} phantom floor; \textbf{I2}
+        continuous view (scatter plot).
+  \item \textbf{J} ministry-filter thresholds; \textbf{K} constituency-statistics
+        coverage.
+\end{itemize}

@@ -67,6 +67,18 @@ site/tests/
 # --- Guide d'installation perso (Windows / pour un proche) — local only ---
 site/LANCER-LE-SITE.txt
 
+# --- Note méthodologique : on versionne les sources LaTeX ; le PDF rendu et les
+#     tableaux de sensibilité vont dans le dépôt Zenodo, pas dans le repo. ---
+methodo/methodo.pdf
+methodo/methodo.txt
+methodo/*.aux
+methodo/*.out
+methodo/*.toc
+methodo/*.synctex.gz
+methodo/*.fdb_latexmk
+methodo/*.fls
+methodo_sensitivity_out/
+
 # --- Dossiers locaux Claude Code / backups manuels ---
 .claude/
 .backup/
