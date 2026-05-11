@@ -6,7 +6,8 @@
   <title>{% block title %}577députés{% endblock %} — Activité parlementaire · XVIIᵉ législature</title>
   {% set _default_desc = "Explorateur indépendant de l'activité parlementaire : textes, amendements, scrutins et questions de la 17ᵉ législature de l'Assemblée nationale, croisés avec les fiches des 577 députés. Données open data officielles." %}
   {% set page_desc = meta_description | default(_default_desc, true) %}
-  {% set page_url = "https://577deputes.fr" + (request.url.path if request else "/") %}
+  {% set _base = site_base_url | default("https://577deputes.fr", true) %}
+  {% set page_url = _base + (request.url.path if request else "/") %}
   <meta name="description" content="{{ page_desc }}">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="{{ page_url }}">
@@ -17,7 +18,7 @@
   <meta property="og:title" content="{% block og_title %}577députés — Activité parlementaire · XVIIᵉ législature{% endblock %}">
   <meta property="og:description" content="{{ page_desc }}">
   <meta property="og:url" content="{{ page_url }}">
-  <meta property="og:image" content="https://577deputes.fr/static/og-image.png">
+  <meta property="og:image" content="{{ _base }}/static/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:locale" content="fr_FR">
@@ -26,7 +27,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="577députés — Activité parlementaire · XVIIᵉ législature">
   <meta name="twitter:description" content="{{ page_desc }}">
-  <meta name="twitter:image" content="https://577deputes.fr/static/og-image.png">
+  <meta name="twitter:image" content="{{ _base }}/static/og-image.png">
 
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
@@ -80,6 +81,7 @@
         — <a href="/a-propos">méthodologie & sources</a>
         · <a href="/mentions-legales">mentions légales</a>
         · <a href="/api/docs">API</a>
+        · <a href="https://github.com/RogericBot/577deputes" target="_blank" rel="noopener">code source</a>
       </p>
       <p class="footer-disclaimer">
         Site indépendant, sans affiliation politique, partisane ou institutionnelle.
