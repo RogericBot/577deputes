@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import texte_subnav %}
 {% block title %}Amendement {{ a.numero or 'sans numéro' }}{% endblock %}
+{% block og_title %}Amendement n°{{ a.numero or 'sans numéro' }}{% if a.dossier_titre %} — {{ a.dossier_titre | truncate(60) }}{% endif %} · 577députés{% endblock %}
 {% block content %}
 
 {{ texte_subnav('amendements') }}

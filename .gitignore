@@ -80,6 +80,10 @@ methodo/*.fdb_latexmk
 methodo/*.fls
 methodo_sensitivity_out/
 
+# --- Captures d'écran de test (QA, debug navigateur) à la racine — pas dans le repo ---
+/*.png
+.playwright-mcp/
+
 # --- Dossiers locaux Claude Code / backups manuels ---
 .claude/
 .backup/

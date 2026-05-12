@@ -15,7 +15,7 @@
   {# Open Graph (Facebook, LinkedIn, Discord, WhatsApp...) #}
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="577députés">
-  <meta property="og:title" content="{% block og_title %}577députés — Activité parlementaire · XVIIᵉ législature{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}{{ self.title() }} — Activité parlementaire · XVIIᵉ législature{% endblock %}">
   <meta property="og:description" content="{{ page_desc }}">
   <meta property="og:url" content="{{ page_url }}">
   <meta property="og:image" content="{{ _base }}/static/og-image.png">
@@ -25,7 +25,7 @@
 
   {# Twitter / X #}
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="577députés — Activité parlementaire · XVIIᵉ législature">
+  <meta name="twitter:title" content="{{ self.og_title() }}">
   <meta name="twitter:description" content="{{ page_desc }}">
   <meta name="twitter:image" content="{{ _base }}/static/og-image.png">
 
@@ -33,6 +33,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <script defer src="/static/share.js"></script>
   <script defer src="/static/chart-modal.js"></script>
+  <script defer src="/static/share-page.js"></script>
 
   {% block extra_head %}{% endblock %}
 </head>
@@ -82,6 +83,10 @@
         · <a href="/mentions-legales">mentions légales</a>
         · <a href="/api/docs">API</a>
         · <a href="https://github.com/RogericBot/577deputes" target="_blank" rel="noopener">code source</a>
+      </p>
+      <p class="footer-share">
+        <button type="button" id="share-page-btn">Partager cette page</button>
+        <span id="share-page-msg" class="muted small" aria-live="polite"></span>
       </p>
       <p class="footer-disclaimer">
         Site indépendant, sans affiliation politique, partisane ou institutionnelle.

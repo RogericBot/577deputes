@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import group_badge, hbar_chart, status_pill, chart_button %}
 {% block title %}{{ d.nom_complet }}{% endblock %}
+{% block og_title %}{{ d.nom_complet }} — fiche du député · 577députés{% endblock %}
 {% block content %}
 
 <nav class="breadcrumb">
@@ -17,12 +18,12 @@
       {% if d.parti_libelle %} · Parti : {{ d.parti_libelle }}{% endif %}
     </p>
     <ul class="kv">
-      <li><span>Circonscription</span> <strong>{{ d.departement }} ({{ d.departement_code }}) — {{ d.circonscription }}ᵉ</strong></li>
+      <li><span>Circonscription</span> <strong>{% if d.departement %}{{ d.departement }} ({{ d.departement_code }}){% if d.circonscription %} — {{ d.circonscription }}ᵉ{% endif %}{% else %}—{% endif %}</strong></li>
       <li><span>Région</span> <strong>{{ d.region or '—' }}</strong></li>
       <li><span>Profession</span> <strong>{{ d.profession or '—' }}</strong></li>
       <li><span>Né(e) le</span> <strong>{{ d.date_naissance | fdate }}{% if d.lieu_naissance %} à {{ d.lieu_naissance }}{% endif %}</strong></li>
       <li><span>Place hémicycle</span> <strong>{{ d.place_hemicycle or '—' }}</strong></li>
-      <li><span>Mandat</span> <strong>{{ d.date_debut_mandat | fdate }} → {{ d.date_fin_mandat | fdate if d.date_fin_mandat else 'en cours' }}</strong></li>
+      <li><span>Mandat</span> <strong>{% if d.date_debut_mandat %}{{ d.date_debut_mandat | fdate }} → {{ d.date_fin_mandat | fdate if d.date_fin_mandat else 'en cours' }}{% else %}—{% endif %}</strong></li>
       {% if d.email_an %}<li><span>Contact</span> <a href="mailto:{{ d.email_an }}">{{ d.email_an }}</a></li>{% endif %}
       {% if d.uri_hatvp %}<li><span>HATVP</span> <a href="{{ d.uri_hatvp }}" target="_blank" rel="noopener">Déclaration ↗</a></li>{% endif %}
       <li><span>Fiche AN</span> <a href="https://www.assemblee-nationale.fr/dyn/deputes/{{ d.uid }}" target="_blank" rel="noopener">{{ d.uid }} ↗</a></li>

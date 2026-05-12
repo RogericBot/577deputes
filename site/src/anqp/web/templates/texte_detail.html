@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import hbar_chart, group_badge, texte_subnav, chart_button %}
 {% block title %}{{ d.titre | truncate(60) }}{% endblock %}
+{% block og_title %}{{ d.titre | truncate(90) }} · 577députés{% endblock %}
 {% block content %}
 
 {{ texte_subnav('textes') }}
