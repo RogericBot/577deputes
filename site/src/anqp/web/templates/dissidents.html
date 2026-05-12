@@ -1,22 +1,24 @@
 {% extends "base.html" %}
 {% from "_macros.html" import group_badge, pagination, chart_button %}
-{% block title %}Dissidents{% endblock %}
+{% block title %}Indépendance de vote{% endblock %}
 {% block content %}
 
-<h1>Mur des dissidents</h1>
+<h1>Indépendance de vote</h1>
+<p class="muted" style="margin-bottom: 4px;">
+  Députés qui s'écartent le plus de la position majoritaire de leur groupe,
+  sur les <strong>scrutins publics nominatifs</strong> uniquement.
+</p>
 {% set chart_diss = [] %}
 {% for d in result.rows[:25] %}
   {% set _ = chart_diss.append({'label': d.nom_complet ~ (' · ' ~ d.groupe_abrege if d.groupe_abrege else ''), 'value': (100 - d.discipline_pct) | round(1), 'color': d.groupe_couleur or '#dc2626'}) %}
 {% endfor %}
-<p>{{ chart_button(chart_diss, "Top 25 dissidents — 17ᵉ législature", subtitle="% de votes en désalignement avec la majorité du groupe (≥ " ~ result.min_votes ~ " votes exprimés)", unit="%") }}</p>
+<p>{{ chart_button(chart_diss, "Top 25 — Écart à la ligne du groupe", subtitle="% de votes hors de la majorité du groupe (≥ " ~ result.min_votes ~ " votes exprimés)", unit="%") }}</p>
 <p class="muted">
-  Députés qui votent le plus souvent à l'écart de la majorité de leur groupe,
-  sur les <strong>scrutins publics nominatifs</strong> uniquement. Seuil minimum :
-  {{ result.min_votes }} votes exprimés (pour, contre, abstention).
+  Seuil minimum : {{ result.min_votes }} votes exprimés (pour, contre, abstention).
   Les votes à main levée n'apparaissent pas.
   <br>
   <span class="small">Les députés <strong>Non inscrits (NI)</strong> sont exclus de ce classement :
-  n'appartenant à aucun groupe parlementaire, la notion de « discipline de groupe » ne s'applique pas à eux.</span>
+  n'appartenant à aucun groupe parlementaire, la notion d'alignement sur un groupe ne s'applique pas à eux.</span>
 </p>
 
 <form action="/dissidents" method="get" class="filter-bar">
@@ -32,8 +34,8 @@
     {% endfor %}
   </select>
   <select name="sort" aria-label="Tri">
-    <option value="dissidence_desc" {% if result.sort == 'dissidence_desc' %}selected{% endif %}>Plus dissidents d'abord</option>
-    <option value="discipline_desc" {% if result.sort == 'discipline_desc' %}selected{% endif %}>Plus disciplinés d'abord</option>
+    <option value="dissidence_desc" {% if result.sort == 'dissidence_desc' %}selected{% endif %}>Les plus indépendants d'abord</option>
+    <option value="discipline_desc" {% if result.sort == 'discipline_desc' %}selected{% endif %}>Les plus alignés d'abord</option>
     <option value="votes_desc"      {% if result.sort == 'votes_desc'      %}selected{% endif %}>Plus de votes exprimés</option>
     <option value="votes_asc"       {% if result.sort == 'votes_asc'       %}selected{% endif %}>Moins de votes exprimés</option>
   </select>
@@ -56,14 +58,14 @@
         <div class="dissident-metric">
           <div class="dissident-pct">
             <strong>{{ d.discipline_pct | round(1) }}%</strong>
-            <span class="muted small">discipline</span>
+            <span class="muted small">aligné sur le groupe</span>
           </div>
           <div class="discipline-bar">
             <div class="discipline-fill" style="width:{{ d.discipline_pct }}%; background:{{ d.groupe_couleur or '#3b82f6' }}"></div>
           </div>
           <div class="muted small">
-            {{ d.dissidences | fint }} dissidence{% if d.dissidences > 1 %}s{% endif %}
-            sur {{ d.expressed | fint }} votes
+            {{ d.dissidences | fint }} vote{% if d.dissidences > 1 %}s{% endif %} hors ligne du groupe
+            sur {{ d.expressed | fint }}
           </div>
         </div>
       </div>

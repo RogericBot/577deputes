@@ -53,7 +53,7 @@ CLUSTER_TYPES = {
     "reutilisation": {
         "key": "reutilisation",
         "label": "Réutilisation simple",
-        "description": "Doublon ou triplet trivial — souvent la réécriture d'un même modèle, sans signal politique fort.",
+        "description": "Doublon ou triplet — souvent la réécriture d'un même modèle, sans signal politique particulier.",
         "color": "#6b7280",
         "order": 4,
     },

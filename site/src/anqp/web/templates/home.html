@@ -18,11 +18,11 @@
 {# À LA UNE : 3 trouvailles factuelles tirées des analyses #}
 {% if highlights %}
 <section class="highlights-row">
-  <h2 class="highlights-title">À la une — les chiffres qui frappent</h2>
+  <h2 class="highlights-title">À la une — quelques chiffres marquants</h2>
   <div class="grid grid-3 cards">
     {% if highlights.templates.rate %}
     <a class="card link highlight-card" href="/analyses?tab=templates">
-      <h3>Langue de bois mesurée</h3>
+      <h3>Réponses ministérielles dupliquées</h3>
       <p class="big" style="color: var(--bad);">{{ highlights.templates.rate }} %</p>
       <p class="muted">
         des réponses ministérielles sont des <strong>copies presque
@@ -34,20 +34,20 @@
     {% endif %}
     {% if highlights.strategic_absence %}
     <a class="card link highlight-card" href="/analyses?tab=absenteisme">
-      <h3>Fuite des votes serrés</h3>
+      <h3>Présence aux scrutins serrés</h3>
       <p class="big" style="color: var(--warn);">+{{ highlights.strategic_absence.gap | round(0) | int }} pts</p>
       <p class="muted">
         d'écart de présence entre scrutins consensuels et clivants
         pour <strong>{{ highlights.strategic_absence.nom_complet }}</strong>
-        ({{ highlights.strategic_absence.groupe_abrege }}). Plus le plus fort
-        de l'AN sur la 17ᵉ législature.
+        ({{ highlights.strategic_absence.groupe_abrege }}). C'est le plus fort
+        écart de l'AN sur la 17ᵉ législature.
         <span class="muted small">→ Voir le classement</span>
       </p>
     </a>
     {% endif %}
     {% if highlights.phantom_amendments %}
     <a class="card link highlight-card" href="/analyses?tab=fantomes">
-      <h3>Amendements fantômes</h3>
+      <h3>Amendements jamais défendus</h3>
       <p class="big" style="color: var(--bad);">{{ highlights.phantom_amendments.pct_fantomes }} %</p>
       <p class="muted">
         des amendements déposés par <strong>{{ highlights.phantom_amendments.nom_complet }}</strong>
@@ -98,12 +98,12 @@
     </p>
   </a>
   <a class="card link" href="/dissidents">
-    <h3>Dissidents & disciplines</h3>
+    <h3>Alignement & indépendance de vote</h3>
     <p class="big">{{ discipline.avg_discipline | ffloat(1) }}<span class="big-unit">%</span></p>
     <p class="muted">
-      Discipline moyenne tous groupes confondus
+      Alignement moyen sur la majorité du groupe, tous groupes confondus
       ({{ discipline.deputies_analysed | fint }} députés analysés ≥ 100 votes exprimés).
-      Survolez le classement pour voir les plus alignés et les plus dissidents.
+      Le classement détaille les plus alignés et les plus indépendants.
     </p>
   </a>
 </section>

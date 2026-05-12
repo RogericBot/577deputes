@@ -5,18 +5,18 @@
 
 <h1>Analyses & détections</h1>
 <div class="coalitions-intro">
-  Trois outils qui révèlent des comportements quantifiables à partir des
+  Trois outils qui mesurent des comportements quantifiables à partir des
   données ouvertes : <strong>réponses ministérielles dupliquées</strong>
-  (langue de bois mesurée), <strong>absentéisme stratégique</strong>
-  (députés qui fuient les scrutins serrés), <strong>amendements
-  fantômes</strong> (déposés mais jamais défendus en séance).
+  (réponses-type réutilisées), <strong>présence différentielle</strong>
+  (assiduité variable selon la nature du scrutin), <strong>amendements
+  jamais défendus</strong> (déposés mais sans prise de parole en séance).
   <a href="/a-propos#analyses">Méthodologie complète →</a>
 </div>
 
 <nav class="coalitions-tabs">
-  <a href="/analyses?tab=templates" class="{% if tab == 'templates' %}active{% endif %}">Réponses templates</a>
-  <a href="/analyses?tab=absenteisme" class="{% if tab == 'absenteisme' %}active{% endif %}">Absentéisme stratégique</a>
-  <a href="/analyses?tab=fantomes" class="{% if tab == 'fantomes' %}active{% endif %}">Amendements fantômes</a>
+  <a href="/analyses?tab=templates" class="{% if tab == 'templates' %}active{% endif %}">Réponses dupliquées</a>
+  <a href="/analyses?tab=absenteisme" class="{% if tab == 'absenteisme' %}active{% endif %}">Présence différentielle</a>
+  <a href="/analyses?tab=fantomes" class="{% if tab == 'fantomes' %}active{% endif %}">Amendements non défendus</a>
 </nav>
 
 
@@ -26,12 +26,12 @@
 {% if tab == 'templates' %}
 {% set t = data.templates %}
 <section>
-  <h2>Réponses ministérielles dupliquées (langue de bois quantifiée)</h2>
+  <h2>Réponses ministérielles dupliquées <span class="muted" style="font-weight:400;">— ce que la presse appelle parfois la « langue de bois »</span></h2>
   <p class="muted">
     <strong>Ce que ça mesure :</strong> les ministères répondent aux
     questions parlementaires en réutilisant parfois littéralement le
-    même texte sur des questions <em>différentes</em>. C'est la fameuse
-    « réponse template » qui n'engage à rien.
+    même texte sur des questions <em>différentes</em> — la fameuse
+    « réponse-type ».
   </p>
   <p class="muted">
     <strong>Comment c'est détecté :</strong> on prend les 250 premiers
@@ -102,7 +102,7 @@
   {% endfor %}
 
   <p class="muted small" style="margin-top: 24px;">
-    ⚠️ <strong>Limite</strong> : un template peut être pertinent
+    <strong>Limite :</strong> un template peut être pertinent
     (rappel d'un cadre légal commun à plusieurs questions). Cette
     détection signale un fait quantifiable, pas un jugement.
   </p>
@@ -116,12 +116,13 @@
 {% if tab == 'absenteisme' %}
 {% set a = data.absence %}
 <section>
-  <h2>Absentéisme stratégique : qui fuit les scrutins serrés ?</h2>
+  <h2>Présence différentielle : moins présents sur les scrutins serrés ?</h2>
   <p class="muted">
     <strong>Ce que ça mesure :</strong> certains députés sont assidus
     aux scrutins consensuels (où leur vote ne change rien au résultat)
-    mais absents aux scrutins serrés (où chaque voix compte). C'est
-    une stratégie d'évitement des votes politiquement embarrassants.
+    mais bien moins présents aux scrutins serrés (où chaque voix compte).
+    Cela <em>peut</em> traduire un évitement des votes politiquement
+    sensibles — mais aussi des contraintes d'agenda ; voir la limite ci-dessous.
   </p>
   <p class="muted">
     <strong>Comment c'est calculé :</strong>
@@ -139,14 +140,14 @@
       <strong>{{ a.min_clivants }} scrutins clivants</strong> sont inclus.</li>
   </ul>
 
-  <table class="data-table sharable" data-share-title="Top députés qui fuient les scrutins serrés" style="margin-top: 20px;">
+  <table class="data-table sharable" data-share-title="Présence différentielle — écart consensuels vs clivants" style="margin-top: 20px;">
     <thead>
       <tr>
         <th>Député</th>
         <th>Groupe</th>
         <th>Présence consensuels</th>
         <th>Présence clivants</th>
-        <th>Écart (= fuite)</th>
+        <th>Écart de présence</th>
       </tr>
     </thead>
     <tbody>
@@ -177,7 +178,7 @@
   </table>
 
   <p class="muted small" style="margin-top: 20px;">
-    ⚠️ <strong>Limite</strong> : un écart peut s'expliquer par des
+    <strong>Limite :</strong> un écart peut s'expliquer par des
     raisons légitimes (mandat local, déplacement officiel, santé,
     grossesse, démission tardive). C'est un indicateur statistique,
     pas une accusation.
@@ -192,10 +193,10 @@
 {% if tab == 'fantomes' %}
 {% set p = data.phantom %}
 <section>
-  <h2>Amendements fantômes : déposés mais jamais défendus</h2>
+  <h2>Amendements déposés mais jamais défendus en séance <span class="muted" style="font-weight:400;">(« amendements fantômes »)</span></h2>
 
   <section class="card" style="background: var(--warn-soft); border-color: var(--warn); margin-bottom: 24px;">
-    <h3 style="margin-top: 0; color: var(--warn);">💡 Ce que cette analyse révèle</h3>
+    <h3 style="margin-top: 0; color: var(--warn);">Ce que cette analyse révèle</h3>
     <p style="margin-bottom: 8px;">
       Tout amendement peut être <strong>déposé</strong>. Mais pour
       avoir un effet, il doit être <strong>défendu en séance ou en

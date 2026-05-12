@@ -159,25 +159,29 @@
       Limite : un template peut être légitime (rappel de cadre légal
       partagé) ; cette détection signale un fait quantifiable, pas un
       jugement.</li>
-    <li><strong>Absentéisme stratégique</strong> : pour chaque scrutin
+    <li><strong>Présence différentielle</strong> (familièrement « absentéisme
+      stratégique ») : pour chaque scrutin
       avec ≥ 200 votants exprimés, on classe en <em>clivant</em>
       (écart |pour−contre| ≤ 10 % du total) ou <em>consensuel</em>
       (écart > 50 %). Pour chaque député, on calcule son taux de
       présence dans chaque catégorie. L'écart
       <code>(% présence consensuels − % présence clivants)</code>
-      est affiché ; un écart fortement positif suggère une stratégie
-      d'évitement des votes serrés. Filtre : ≥ 30 scrutins clivants
+      est affiché ; un écart fortement positif <em>peut</em> suggérer un
+      évitement des votes serrés — mais aussi des contraintes d'agenda.
+      Filtre : ≥ 30 scrutins clivants
       participés. Un écart peut s'expliquer par des raisons légitimes
       (mandat local, déplacement officiel, santé).</li>
-    <li><strong>Amendements fantômes</strong> : pour chaque député
+    <li><strong>Amendements jamais défendus</strong> (« amendements
+      fantômes ») : pour chaque député
       ayant déposé ≥ 50 amendements, on calcule le ratio
       <code>(amendements défendus) / (amendements déposés)</code>.
       Un amendement est dit « défendu » si son sort est
       <code>Adopté</code>, <code>Rejeté</code>, <code>Retiré</code>
-      ou <code>Discuté</code>. Il est dit « fantôme » si son sort
-      est <code>Non soutenu</code> ou absent. Un haut taux de fantômes
-      peut indiquer du dépôt pour la communication, de l'obstruction
-      collective, ou une délégation politique (l'amendement est porté
+      ou <code>Discuté</code>. Il est dit « non défendu » si son sort
+      est <code>Non soutenu</code> ou absent. Un haut taux d'amendements
+      non défendus <em>peut</em> indiquer du dépôt pour la communication,
+      un dépôt en masse pour ralentir un examen,
+      ou une délégation politique (l'amendement est porté
       au nom d'un groupe et défendu par un autre député). Indicateur
       brut, à croiser avec d'autres signaux pour conclure.</li>
   </ol>
@@ -260,9 +264,9 @@
     <li><strong>Amplification intra-groupe</strong> — <strong>1 seul groupe</strong>
       dépose la même rédaction <strong>3 fois ou plus</strong> via des députés
       différents. Stratégie collective de visibilité d'un groupe.</li>
-    <li><strong>Réutilisation simple</strong> — doublon ou triplet trivial qui
+    <li><strong>Réutilisation simple</strong> — doublon ou triplet qui
       ne rentre dans aucune des catégories précédentes (2-3 amendements, peu
-      importe le groupe). Faible signal politique.</li>
+      importe le groupe). Signal politique faible.</li>
   </ol>
   <p>
     La classification est déterministe (calculée à partir des seuls champs <code>size</code>
