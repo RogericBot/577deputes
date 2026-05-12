@@ -46,23 +46,25 @@
     intégré).
   </p>
   <ul>
-    <li><strong>Un seul cookie</strong> est déposé : <code>vid</code>,
-      un identifiant aléatoire de 12 caractères servant uniquement à
-      distinguer les visiteurs qui reviennent (durée de vie : 1 an,
-      <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite=Lax</code>).
-      Il ne permet aucune identification personnelle ni recoupement
-      avec d'autres sites. Ce cookie est <strong>exempté de consentement</strong>
-      au titre de l'exemption « mesure d'audience » prévue par la CNIL
-      (art. 82 de la loi Informatique et Libertés) : usage strictement
-      limité à la mesure d'audience pour le compte exclusif de l'éditeur,
-      sans partage avec des tiers, sans suivi inter-sites. Vous pouvez le
-      refuser à tout moment via les réglages de votre navigateur.</li>
-    <li><strong>Aucune adresse IP n'est stockée.</strong></li>
-    <li>Des <strong>statistiques agrégées</strong> sont conservées :
-      nombre de pages vues par jour, type de navigateur (catégorie type
-      « Chrome desktop », jamais le User-Agent brut), page visitée
-      (avec les identifiants normalisés). Aucune de ces données n'est
-      individualisante ni transmise à un tiers.</li>
+    <li><strong>Aucun cookie n'est déposé</strong> et aucun identifiant
+      persistant n'est associé à votre navigateur. Aucun script de pistage,
+      aucune empreinte (« fingerprinting »).</li>
+    <li><strong>Aucune adresse IP n'est conservée.</strong> Pour compter les
+      visiteurs uniques d'une journée, votre IP et votre User-Agent sont
+      combinés à un sel aléatoire qui change chaque jour, ce qui produit un
+      hash éphémère ; ce hash sert uniquement à éviter de vous compter deux
+      fois dans la même journée, il n'est pas conservé au-delà de ~2 jours et
+      ne permet aucun suivi d'un jour à l'autre. (Approche dite « cookieless »,
+      façon Plausible / Umami, exemptée de consentement.)</li>
+    <li>Des <strong>statistiques agrégées par jour</strong> sont conservées :
+      nombre de pages vues, type de navigateur (catégorie type « Chrome
+      desktop », jamais le User-Agent brut), page visitée (identifiants
+      normalisés, sans la query string), source de provenance (domaine du site
+      référent, jamais l'URL complète), requêtes tapées dans la barre de
+      recherche du site (en agrégé), et — si une base GeoLite2 est installée —
+      le pays (code pays, l'IP n'étant de toute façon pas conservée). Aucune de
+      ces données n'est individualisante ni transmise à un tiers. Rétention :
+      environ 25 mois (limite recommandée par la CNIL), avec purge automatique.</li>
     <li>Les <strong>logs serveur</strong> (nginx) sont conservés
       temporairement à des fins de sécurité et de diagnostic, puis purgés.</li>
   </ul>

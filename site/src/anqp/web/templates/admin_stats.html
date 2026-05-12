@@ -4,17 +4,20 @@
 
 <h1>Statistiques de visite</h1>
 <p class="muted">
-  Compteur interne, jamais exposé publiquement. Pas de service tiers,
-  pas de fingerprinting, pas d'IP stockée — juste un cookie aléatoire
-  pour identifier les visiteurs revenant et des compteurs agrégés
-  par catégorie de User-Agent et par page visitée. Conforme RGPD.
+  Compteur interne, jamais exposé publiquement. Aucun service tiers, aucun
+  fingerprinting, <strong>aucun cookie</strong>, aucune IP stockée. Les visiteurs
+  uniques sont comptés via un hash éphémère (IP + User-Agent + sel aléatoire du
+  jour) jamais conservé au-delà de ~2 jours et ne permettant aucun suivi d'un
+  jour à l'autre. Le reste : uniquement des compteurs agrégés par jour. Approche
+  « cookieless » (façon Plausible / Umami) conforme RGPD — exemptée de bandeau
+  de consentement (CNIL).
 </p>
 
 <section class="grid grid-3 cards">
   <div class="card">
     <h3>👤 Pages vues — humains</h3>
     <p class="big">{{ summary.total_page_views | fint }}</p>
-    <p class="muted">{{ summary.total_unique_visitors | fint }} visiteurs uniques · {{ summary.avg_visits_per_visitor }} pages/visiteur en moyenne</p>
+    <p class="muted">{{ summary.total_unique_visitors | fint }} uniques (cumul des uniques quotidiens) · {{ summary.avg_visits_per_visitor }} pages vues / visiteur-jour</p>
   </div>
   <div class="card">
     <h3>📅 Aujourd'hui</h3>
@@ -98,6 +101,50 @@
   </div>
 </section>
 
+<section class="grid grid-2" style="margin-top: 32px;">
+  <div>
+    <h2>Provenance des visiteurs (30 j)</h2>
+    {% if summary.top_referrers %}
+    <table class="data-table">
+      <thead><tr><th>Source</th><th>Pages vues</th></tr></thead>
+      <tbody>
+      {% for r in summary.top_referrers %}
+        <tr><td>{{ r.source }}</td><td><strong>{{ r.page_views | fint }}</strong></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty">Aucune donnée encore.</p>{% endif %}
+  </div>
+  <div>
+    <h2>Top recherches sur le site (30 j)</h2>
+    {% if summary.top_searches %}
+    <table class="data-table">
+      <thead><tr><th>Requête</th><th>Nombre</th></tr></thead>
+      <tbody>
+      {% for s in summary.top_searches %}
+        <tr><td><code style="font-size: 12px;">{{ s.query }}</code></td><td><strong>{{ s.count | fint }}</strong></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="empty">Aucune recherche enregistrée.</p>{% endif %}
+  </div>
+</section>
+
+{% if summary.top_countries %}
+<section style="margin-top: 32px;">
+  <h2>Pays (30 j)</h2>
+  <p class="muted small">Géolocalisation à partir de l'IP au moment de la requête (base GeoLite2 locale). L'IP n'est jamais stockée — seul le code pays l'est, en agrégé.</p>
+  <table class="data-table">
+    <thead><tr><th>Pays</th><th>Pages vues</th></tr></thead>
+    <tbody>
+    {% for c in summary.top_countries %}
+      <tr><td>{{ c.country }}</td><td><strong>{{ c.page_views | fint }}</strong></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
 <section class="card" style="margin-top: 32px;">
   <h3>Méthodologie & RGPD</h3>
   <p class="muted small">
@@ -118,9 +165,27 @@
     <code>/deputes/PA12345</code>). Pas de query string conservée.
   </p>
   <p class="muted small">
+    <strong>Visiteurs uniques</strong> : aucun cookie. Pour chaque requête on
+    calcule <code>sha256(sel-du-jour + IP + User-Agent)</code> tronqué ; ce hash
+    sert seulement à dédoublonner les visiteurs dans la journée, change chaque
+    jour (donc impossible de suivre quelqu'un d'un jour à l'autre), et est purgé
+    après ~2 jours. L'IP n'est jamais écrite — elle ne sert qu'au calcul du hash
+    (et au lookup pays si une base GeoLite2 est présente dans <code>data/</code>).
+  </p>
+  <p class="muted small">
+    <strong>Provenance</strong> : seul le <em>domaine</em> du referrer est
+    conservé (jamais l'URL complète, qui pourrait être sensible), normalisé en
+    source lisible (« Recherche : Google », « Réseau : Discord », « (accès
+    direct) »…). <strong>Recherches</strong> : les requêtes de la barre de
+    recherche du site sont comptées en agrégé (minuscules, tronquées à 80 car.),
+    jamais liées à un visiteur ni horodatées individuellement.
+  </p>
+  <p class="muted small">
+    <strong>Rétention</strong> : agrégats journaliers conservés ~25 mois (limite
+    CNIL), hashs éphémères ~2 jours ; purge automatique au changement de jour.
     <strong>Données stockées</strong> : <code>data/analytics.db</code>, jamais
-    transmis à un tiers, jamais exporté, accessible uniquement depuis cette
-    page (HTTP Basic Auth).
+    transmis à un tiers, jamais exporté, accessible uniquement depuis cette page
+    (HTTP Basic Auth).
   </p>
 </section>
 

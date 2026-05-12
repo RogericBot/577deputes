@@ -94,7 +94,7 @@ app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 
 
 # ---------------------------------------------------------------------
-# Analytics middleware — compteur de pages vues + visiteurs uniques
+# Analytics middleware — mesure d'audience agrégée, sans cookie
 # ---------------------------------------------------------------------
 _ANALYTICS_SKIP_PREFIXES = (
     "/static/", "/api/", "/photo/", "/admin/",
@@ -103,9 +103,24 @@ _ANALYTICS_SKIP_PREFIXES = (
 )
 
 
+def _client_ip(request: Request) -> str:
+    """IP réelle du client (nginx pose X-Real-IP en amont). Utilisée uniquement
+    pour le hash éphémère du jour et le lookup GeoIP — jamais stockée."""
+    xri = request.headers.get("x-real-ip")
+    if xri:
+        return xri.strip()
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
 @app.middleware("http")
 async def _analytics_middleware(request: Request, call_next):
     response = await call_next(request)
+    # On a abandonné le cookie de mesure d'audience : on nettoie les anciens.
+    if "vid" in request.cookies:
+        response.delete_cookie("vid")
     try:
         path = request.url.path
         if (
@@ -114,24 +129,13 @@ async def _analytics_middleware(request: Request, call_next):
             and not any(path.startswith(p) for p in _ANALYTICS_SKIP_PREFIXES)
         ):
             from . import analytics
-            ua = request.headers.get("user-agent", "")
-            category, is_bot = analytics.categorize_ua(ua)
-            normalized_path = analytics.normalize_path(path)
-
-            old_id = request.cookies.get("vid")
-            new_id = analytics.record_visit(
-                old_id, is_bot=is_bot,
-                category=category, path=normalized_path,
+            analytics.record_visit(
+                ip=_client_ip(request),
+                ua=request.headers.get("user-agent", ""),
+                raw_path=path,
+                referer=request.headers.get("referer", ""),
+                search_query=(request.query_params.get("q", "") if path == "/recherche" else ""),
             )
-            # Cookie posé seulement pour les visiteurs humains
-            if not is_bot and old_id != new_id:
-                response.set_cookie(
-                    "vid", new_id,
-                    max_age=365 * 24 * 3600,
-                    samesite="lax",
-                    httponly=True,
-                    secure=True,
-                )
     except Exception:
         log.exception("analytics_middleware silent error")
     return response
