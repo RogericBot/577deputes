@@ -14,7 +14,7 @@ consentement (CNIL).
 
 Données conservées : uniquement des agrégats par jour — pages vues, uniques,
 catégorie de navigateur/bot, URL normalisée, source de provenance (referrer),
-requêtes de recherche du site, pays (si une base GeoLite2 est présente).
+requêtes de recherche du site.
 Rétention : ~25 mois pour les agrégats, ~2 jours pour les hashs éphémères.
 Purge automatique au changement de jour.
 """
@@ -107,21 +107,11 @@ def init() -> None:
                 PRIMARY KEY (day, query)
             );
 
-            -- Compteur agrégé par pays (code ISO). Rempli seulement si une base
-            -- GeoLite2-Country.mmdb est présente dans data/ et geoip2 installé.
-            -- L'IP n'est jamais stockée ; elle sert uniquement au lookup en mémoire.
-            CREATE TABLE IF NOT EXISTS daily_countries (
-                day TEXT NOT NULL, country TEXT NOT NULL,
-                page_views INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY (day, country)
-            );
-
             CREATE INDEX IF NOT EXISTS idx_seen_today_day ON seen_today(day);
             CREATE INDEX IF NOT EXISTS idx_categories_day ON daily_categories(day);
             CREATE INDEX IF NOT EXISTS idx_paths_day      ON daily_paths(day);
             CREATE INDEX IF NOT EXISTS idx_referrers_day  ON daily_referrers(day);
             CREATE INDEX IF NOT EXISTS idx_searches_day   ON daily_searches(day);
-            CREATE INDEX IF NOT EXISTS idx_countries_day  ON daily_countries(day);
             """
         )
         # Migrations : colonnes manquantes (anciennes bases).
@@ -334,35 +324,6 @@ def normalize_search_query(q: str) -> str:
 
 
 # ---------------------------------------------------------------------
-# GeoIP — optionnel : inerte tant qu'aucune base GeoLite2 n'est présente.
-# Activation : `pip install geoip2` + déposer GeoLite2-Country.mmdb dans data/.
-# ---------------------------------------------------------------------
-_GEOIP_READER = None
-_GEOIP_TRIED = False
-
-
-def country_from_ip(ip: str) -> str:
-    """Code pays ISO ('FR', 'BE'...) ou '??' si indisponible. IP utilisée
-    seulement en mémoire ici, jamais écrite."""
-    global _GEOIP_READER, _GEOIP_TRIED
-    if not _GEOIP_TRIED:
-        _GEOIP_TRIED = True
-        try:
-            import geoip2.database  # type: ignore
-            mmdb = Path(settings.data_dir) / "GeoLite2-Country.mmdb"
-            if mmdb.exists():
-                _GEOIP_READER = geoip2.database.Reader(str(mmdb))
-        except Exception:
-            _GEOIP_READER = None
-    if _GEOIP_READER is None or not ip:
-        return "??"
-    try:
-        return _GEOIP_READER.country(ip).country.iso_code or "??"
-    except Exception:
-        return "??"
-
-
-# ---------------------------------------------------------------------
 # Sel du jour + hash éphémère
 # ---------------------------------------------------------------------
 _salt_cache: dict[str, str] = {}  # {day: salt} — un seul jour à la fois
@@ -407,7 +368,7 @@ def purge_old() -> None:
     try:
         conn.execute("BEGIN IMMEDIATE")
         for tbl in ("daily_stats", "daily_categories", "daily_paths",
-                    "daily_referrers", "daily_searches", "daily_countries"):
+                    "daily_referrers", "daily_searches"):
             conn.execute(f"DELETE FROM {tbl} WHERE day < date('now', ?)",
                          (f"-{RETENTION_DAYS_AGG} days",))
         for tbl in ("seen_today", "daily_salt"):
@@ -430,8 +391,8 @@ def record_visit(ip: str = "", ua: str = "", raw_path: str = "/",
                  referer: str = "", search_query: str = "") -> None:
     """Enregistre une page vue (agrégats uniquement, sans cookie, sans stocker l'IP).
 
-    `ip` n'est utilisée que pour calculer le hash éphémère du jour et le lookup
-    GeoIP éventuel ; elle n'est jamais écrite dans la base.
+    `ip` ne sert qu'à calculer le hash éphémère du jour ; elle n'est jamais
+    écrite dans la base.
     """
     global _last_purge_day
     today = date.today().isoformat()
@@ -440,7 +401,6 @@ def record_visit(ip: str = "", ua: str = "", raw_path: str = "/",
     path = normalize_path(raw_path)
     ref_source = categorize_referrer(referer)
     sq = normalize_search_query(search_query)
-    country = country_from_ip(ip)
 
     conn = _connect()
     try:
@@ -491,12 +451,6 @@ def record_visit(ip: str = "", ua: str = "", raw_path: str = "/",
                 "INSERT INTO daily_searches (day, query, count) VALUES (?, ?, 1) "
                 "ON CONFLICT(day, query) DO UPDATE SET count = count + 1",
                 (today, sq),
-            )
-        if country != "??":
-            conn.execute(
-                "INSERT INTO daily_countries (day, country, page_views) VALUES (?, ?, 1) "
-                "ON CONFLICT(day, country) DO UPDATE SET page_views = page_views + 1",
-                (today, country),
             )
         conn.execute("COMMIT")
     except Exception:
@@ -552,7 +506,6 @@ def get_summary(days: int = 30) -> dict:
         top_paths = top("daily_paths", "path", "page_views")
         top_referrers = top("daily_referrers", "source", "page_views")
         top_searches = top("daily_searches", "query", "count", 40)
-        top_countries = top("daily_countries", "country", "page_views", 40)
 
         return {
             "total_page_views": total_pv,
@@ -576,7 +529,6 @@ def get_summary(days: int = 30) -> dict:
             "top_paths": [{"path": r[0], "page_views": r[1]} for r in top_paths],
             "top_referrers": [{"source": r[0], "page_views": r[1]} for r in top_referrers],
             "top_searches": [{"query": r[0], "count": r[1]} for r in top_searches],
-            "top_countries": [{"country": r[0], "page_views": r[1]} for r in top_countries],
         }
     finally:
         conn.close()

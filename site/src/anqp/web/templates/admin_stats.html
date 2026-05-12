@@ -130,21 +130,6 @@
   </div>
 </section>
 
-{% if summary.top_countries %}
-<section style="margin-top: 32px;">
-  <h2>Pays (30 j)</h2>
-  <p class="muted small">Géolocalisation à partir de l'IP au moment de la requête (base GeoLite2 locale). L'IP n'est jamais stockée — seul le code pays l'est, en agrégé.</p>
-  <table class="data-table">
-    <thead><tr><th>Pays</th><th>Pages vues</th></tr></thead>
-    <tbody>
-    {% for c in summary.top_countries %}
-      <tr><td>{{ c.country }}</td><td><strong>{{ c.page_views | fint }}</strong></td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</section>
-{% endif %}
-
 <section class="card" style="margin-top: 32px;">
   <h3>Méthodologie & RGPD</h3>
   <p class="muted small">
@@ -169,8 +154,7 @@
     calcule <code>sha256(sel-du-jour + IP + User-Agent)</code> tronqué ; ce hash
     sert seulement à dédoublonner les visiteurs dans la journée, change chaque
     jour (donc impossible de suivre quelqu'un d'un jour à l'autre), et est purgé
-    après ~2 jours. L'IP n'est jamais écrite — elle ne sert qu'au calcul du hash
-    (et au lookup pays si une base GeoLite2 est présente dans <code>data/</code>).
+    après ~2 jours. L'IP n'est jamais écrite — elle ne sert qu'au calcul du hash.
   </p>
   <p class="muted small">
     <strong>Provenance</strong> : seul le <em>domaine</em> du referrer est

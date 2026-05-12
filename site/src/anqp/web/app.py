@@ -105,7 +105,7 @@ _ANALYTICS_SKIP_PREFIXES = (
 
 def _client_ip(request: Request) -> str:
     """IP réelle du client (nginx pose X-Real-IP en amont). Utilisée uniquement
-    pour le hash éphémère du jour et le lookup GeoIP — jamais stockée."""
+    pour calculer le hash éphémère du jour — jamais stockée."""
     xri = request.headers.get("x-real-ip")
     if xri:
         return xri.strip()
