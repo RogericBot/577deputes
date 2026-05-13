@@ -15,6 +15,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from ..config import settings
 from ..db import connect
@@ -159,13 +160,17 @@ def set_legislature_cookie(leg: int, request: Request):
     ):
         raw = "/"
     resp = RedirectResponse(raw, status_code=303)
-    resp.set_cookie(
-        "legislature", str(leg),
-        max_age=365 * 24 * 3600,
-        samesite="lax",
-        httponly=True,
-        secure=True,
-    )
+    if leg in _get_available_legs():
+        resp.set_cookie(
+            "legislature", str(leg),
+            max_age=365 * 24 * 3600,
+            samesite="lax",
+            httponly=True,
+            secure=True,
+        )
+    else:
+        # Unknown legislature → clear any stale cookie, stay on the default.
+        resp.delete_cookie("legislature")
     return resp
 
 
@@ -186,6 +191,28 @@ def photo_proxy(uid: str):
     return FileResponse(placeholder, media_type="image/svg+xml",
                         headers={"Cache-Control": "public, max-age=86400"})
 templates = Jinja2Templates(directory=ROOT / "templates")
+
+
+# ---------------------------------------------------------------------
+# Gestion des erreurs : page 404 HTML "humaine" pour tout le site,
+# JSON conservé pour /api/, /photo/ et les clients qui demandent du JSON.
+# ---------------------------------------------------------------------
+@app.exception_handler(StarletteHTTPException)
+async def _http_exception_handler(request: Request, exc: StarletteHTTPException):
+    path = request.url.path
+    accept = request.headers.get("accept", "")
+    json_only = path.startswith(("/api/", "/photo/")) or (
+        "application/json" in accept and "text/html" not in accept
+    )
+    if exc.status_code == 404 and not json_only:
+        return templates.TemplateResponse(
+            request, "404.html", {"path": path}, status_code=404
+        )
+    return JSONResponse(
+        {"detail": exc.detail},
+        status_code=exc.status_code,
+        headers=exc.headers or None,
+    )
 
 
 # ---------------------------------------------------------------------
@@ -397,15 +424,16 @@ templates.env.globals["current_legislature"] = current_legislature
 
 
 def _refresh_available_legislatures() -> list[int]:
-    """Cache available legislatures (rarely changes — only after ingestion)."""
+    """Cache available legislatures (rarely changes — only after ingestion).
+
+    With the one-DB-file-per-legislature design this is just a directory
+    listing, so it's cheap — but we still cache it to avoid a stat() per
+    page render.
+    """
     try:
-        conn = connect(read_only=True)
+        return available_legislatures()
     except Exception:
         return []
-    try:
-        return available_legislatures(conn)
-    finally:
-        conn.close()
 
 
 _AVAILABLE_LEGS_CACHE = _refresh_available_legislatures()
@@ -426,7 +454,16 @@ templates.env.globals["available_legislatures"] = _get_available_legs
 # Dependencies
 # ---------------------------------------------------------------------
 def get_conn() -> sqlite3.Connection:
-    conn = connect(read_only=True)
+    """Per-request read-only connection, opened against the DB file of the
+    legislature in effect for this request (set by `_legislature_middleware`).
+    Falls back to the default DB if the requested file is missing.
+    """
+    from ..config import db_path_for, settings
+    leg = current_legislature()
+    path = db_path_for(leg)
+    if not path.exists():
+        path = settings.db_path
+    conn = connect(path, read_only=True)
     try:
         yield conn
     finally:
@@ -542,16 +579,20 @@ def sitemap_xml(conn: sqlite3.Connection = Depends(get_conn)):
 
 
 # Resolve the legislature override (cookie or ?leg= query) before each request.
+# Only legislatures that actually have a DB file are honoured ; anything else
+# falls back to the default (current) legislature.
 @app.middleware("http")
 async def _legislature_middleware(request: Request, call_next):
     raw = request.query_params.get("leg") or request.cookies.get("legislature")
+    chosen = None
     if raw:
         try:
-            set_legislature(int(raw))
+            n = int(raw)
+            if n in _get_available_legs():
+                chosen = n
         except ValueError:
-            set_legislature(None)
-    else:
-        set_legislature(None)
+            pass
+    set_legislature(chosen)
     return await call_next(request)
 
 
@@ -919,7 +960,7 @@ def api_health():
 def security_txt():
     """RFC 9116 — point de contact pour disclosure responsable."""
     return (
-        "Contact: mailto:martinez-eric@hotmail.fr\n"
+        "Contact: mailto:martinez-eric1@hotmail.fr\n"
         f"Contact: {SITE_BASE_URL}/mentions-legales\n"
         "Expires: 2027-12-31T23:59:59Z\n"
         "Preferred-Languages: fr, en\n"

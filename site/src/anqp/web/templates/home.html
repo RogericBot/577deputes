@@ -3,16 +3,30 @@
 {% block title %}Accueil{% endblock %}
 {% block content %}
 <section class="hero">
-  <h1>577députés — Activité parlementaire de la XVIIᵉ législature</h1>
+  <h1>577députés — Activité parlementaire de la {{ current_legislature() }}ᵉ législature</h1>
   <p class="muted">
     Un explorateur local et complet des textes, amendements, scrutins et questions
-    de l'Assemblée nationale depuis juillet 2024, croisés avec les fiches
-    des 577 députés en exercice (plus les anciens députés de la législature, indexés).
+    de l'Assemblée nationale ({{ current_legislature() }}ᵉ législature), croisés avec
+    les fiches des 577 députés (plus les anciens députés de la législature, indexés).
   </p>
-  <form action="/questions" method="get" class="search-form">
-    <input type="search" name="q" placeholder="Rechercher dans les questions et réponses…" autofocus>
+  <form action="/recherche" method="get" class="search-form">
+    <input type="search" name="q" placeholder="Rechercher un mot-clé dans les questions, amendements, scrutins, textes…" autofocus>
     <button type="submit">Chercher</button>
   </form>
+</section>
+
+{# Porte d'entrée grand public : trouver son député #}
+<section class="card" style="margin: 14px 0 26px; text-align: center;">
+  <h2 style="margin-top: 0; margin-bottom: 6px;">Vous cherchez votre député ?</h2>
+  <form action="/deputes" method="get" class="search-form" style="max-width: 420px; margin: 10px auto;">
+    <input type="search" name="q" placeholder="Nom de votre député…">
+    <button type="submit">Trouver</button>
+  </form>
+  <p class="muted small" style="margin-bottom: 0;">
+    ou parcourez <a href="/deputes">la liste des 577 députés</a> (filtrable par département et par groupe)
+    · <a href="/carte">la carte des circonscriptions</a>
+    · <a href="/comparer">comparez deux députés</a>
+  </p>
 </section>
 
 {# À LA UNE : 3 trouvailles factuelles tirées des analyses #}
@@ -40,7 +54,7 @@
         d'écart de présence entre scrutins consensuels et clivants
         pour <strong>{{ highlights.strategic_absence.nom_complet }}</strong>
         ({{ highlights.strategic_absence.groupe_abrege }}). C'est le plus fort
-        écart de l'AN sur la 17ᵉ législature.
+        écart de l'AN sur la {{ current_legislature() }}ᵉ législature.
         <span class="muted small">→ Voir le classement</span>
       </p>
     </a>
@@ -140,7 +154,7 @@
     <div>
       <h2>Détection automatique des doublons d'amendements</h2>
       <p class="muted small">
-        Sur les {{ cluster_overview.total_amdts_global | fint }} amendements de la 17ᵉ législature,
+        Sur les {{ cluster_overview.total_amdts_global | fint }} amendements de la {{ current_legislature() }}ᵉ législature,
         <strong>{{ cluster_overview.total_amdts_clusterises | fint }}</strong>
         ({{ cluster_overview.pct_clusterises | round(1) }}%) sont des quasi-doublons,
         groupés en <strong>{{ cluster_overview.total_clusters | fint }} clusters</strong>

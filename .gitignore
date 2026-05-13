@@ -45,6 +45,9 @@ logs/
 INFRA-RECAP.txt
 google*.html
 
+# --- Journal de communication / démarchage (local, contient des contacts) ---
+COMMUNICATION.md
+
 # --- Outil de génération de l'image OG : entièrement local, pas dans le repo ---
 apercu-google/
 

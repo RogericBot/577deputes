@@ -7,10 +7,12 @@
 
 <h1>Doublons d'amendements — détection automatique</h1>
 <p class="muted">
-  Le moteur identifie les groupes d'amendements dont la rédaction est très proche
-  (Jaccard ≥ 0,80 sur des shingles de 5 mots, après normalisation HTML/accents).
-  Chaque cluster est ensuite <strong>classé selon sa composition</strong> :
-  dépôt en masse, convergence inter-groupes, amplification interne ou réutilisation simple.
+  Beaucoup d'amendements déposés à l'Assemblée sont des copies quasi identiques
+  d'autres amendements — même rédaction à quelques mots près. Le site les repère
+  automatiquement, les regroupe en « clusters », et classe chaque cluster selon sa
+  composition : <strong>dépôt en masse</strong>, <strong>convergence inter-groupes</strong>,
+  <strong>amplification intra-groupe</strong> ou <strong>réutilisation simple</strong>.
+  <span class="muted small">(Détails techniques de la méthode plus bas.)</span>
 </p>
 
 {# Bandeau résumé global #}
@@ -54,8 +56,10 @@
   {% else %}
     {{ result.total | fint }} textes ont au moins un cluster détecté.
   {% endif %}
-  Méthode : MinHash 64 hash + LSH 16 bandes ; recalculable via la CLI
-  <code>anqp cluster-amendements</code>.
+  <strong>Méthode :</strong> deux amendements sont jugés « quasi identiques » si leur
+  indice de similarité de Jaccard est ≥ 0,80 sur des fenêtres de 5 mots, après
+  normalisation du HTML et des accents ; le regroupement utilise MinHash (64 hash)
+  + LSH (16 bandes). Recalculable via la CLI <code>anqp cluster-amendements</code>.
 </p>
 
 {{ pagination(result, '/clusters', {'type': selected_type or ''}) }}
