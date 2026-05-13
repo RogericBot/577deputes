@@ -3,7 +3,7 @@
 {% block title %}Scrutins publics{% endblock %}
 {% block content %}
 
-<h1>Scrutins publics nominatifs — 17ᵉ législature</h1>
+<h1>Scrutins publics nominatifs — {{ current_legislature() }}ᵉ législature</h1>
 <p class="muted">
   {{ result.total | fint }} scrutin{% if result.total > 1 %}s{% endif %}.
   Cette base ne couvre que les <strong>scrutins publics nominatifs de séance publique</strong> :

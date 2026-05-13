@@ -29,6 +29,8 @@ id_ecdsa*
 # --- Données lourdes / générées (NE JAMAIS COMMITTER) ---
 site/data/anqp.db
 site/data/anqp.db-*
+site/data/anqp-*.db
+site/data/anqp-*.db-*
 site/data/analytics.db
 site/data/analytics.db-*
 site/data/analyses_cache.pkl
@@ -63,6 +65,7 @@ site/src/anqp/web/static/photos/*.jpg
 site/CHANGELOG.md
 site/decisions.md
 site/phase2-plan.md
+site/phase3-legislatures.md
 site/POSTGRES.md
 
 # --- Tests : non nécessaires au fonctionnement, exclus du repo public ---

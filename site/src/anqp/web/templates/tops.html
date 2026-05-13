@@ -62,7 +62,7 @@
       </li>
     {% endfor %}
     </ol>
-    {{ chart_button(chartq, "Top 10 — Questions parlementaires posées", subtitle="Toutes catégories de questions, par auteur (17ᵉ législature)", unit="questions") }}
+    {{ chart_button(chartq, "Top 10 — Questions parlementaires posées", subtitle="Toutes catégories de questions, par auteur (" ~ current_legislature() ~ "ᵉ législature)", unit="questions") }}
   </section>
 
   {# Top par AMENDEMENTS déposés #}
@@ -82,7 +82,7 @@
       </li>
     {% endfor %}
     </ol>
-    {{ chart_button(charta, "Top 10 — Amendements déposés", subtitle="Par premier signataire (commission + séance, 17ᵉ législature)", unit="amendements") }}
+    {{ chart_button(charta, "Top 10 — Amendements déposés", subtitle="Par premier signataire (commission + séance, " ~ current_legislature() ~ "ᵉ législature)", unit="amendements") }}
   </section>
 
   {# Présents en scrutin #}
@@ -243,7 +243,7 @@
       </li>
     {% endfor %}
     </ol>
-    {{ chart_button(chart8, "Top 10 — Scrutins les plus serrés", subtitle="Écart entre les voix pour et contre (scrutins publics 17ᵉ législature)", unit="voix d'écart") }}
+    {{ chart_button(chart8, "Top 10 — Scrutins les plus serrés", subtitle="Écart entre les voix pour et contre (scrutins publics " ~ current_legislature() ~ "ᵉ législature)", unit="voix d'écart") }}
   </section>
 
 </div>

@@ -126,15 +126,40 @@ def parse_acteur(raw: dict) -> tuple[dict | None, list[dict]]:
 
     # ----- mandates -----
     mandate_rows: list[dict] = []
-    parl_mandate = None
-    gp_mandate = None  # current group
+    # We collect *candidates* and pick the best at the end, because for a
+    # past (closed) legislature every mandate has a dateFin, so a naive
+    # "is_open" filter would reject them all. Rules :
+    #   - parliamentary seat : among ASSEMBLEE mandates of this legislature,
+    #     prefer the one that carries an election.lieu (the real deputy seat,
+    #     not a Bureau / Présidence mandate which can also be typeOrgane
+    #     ASSEMBLEE), then prefer an open one, then the latest dateDebut.
+    #   - group : latest open GP mandate of this legislature, else latest.
+    # Works for both the embedded format (AMO10) and the "divisés" format
+    # (AMO30/AMO50) which has no @xsi:type on mandates.
+    parl_candidates: list[dict] = []   # ASSEMBLEE mandates, this legislature
+    gp_candidates: list[dict] = []     # GP mandates, this legislature
     parpol_mandate = None
+
+    def _has_circo(m: dict) -> bool:
+        lieu = get(m, "election", "lieu") or {}
+        return bool(isinstance(lieu, dict) and lieu.get("numCirco"))
+
+    def _pick_best(cands: list[dict], *, prefer=None) -> dict | None:
+        if not cands:
+            return None
+        if prefer is not None:
+            preferred = [m for m in cands if prefer(m)]
+            if preferred:
+                cands = preferred
+        open_ones = [m for m in cands if text_of(m.get("dateFin")) is None]
+        pool = open_ones or cands
+        return max(pool, key=lambda m: text_of(m.get("dateDebut")) or "")
 
     for m in as_list(get(a, "mandats", "mandat")):
         if not isinstance(m, dict):
             continue
-        m_uid = m.get("uid")
-        if not isinstance(m_uid, str):
+        m_uid = text_of(m.get("uid"))
+        if not m_uid:
             continue
         type_organe = text_of(m.get("typeOrgane"))
         organe_uid = get(m, "organes", "organeRef")
@@ -144,7 +169,6 @@ def parse_acteur(raw: dict) -> tuple[dict | None, list[dict]]:
             organe_uid = text_of(organe_uid)
         leg = to_int(m.get("legislature"))
         date_fin = text_of(m.get("dateFin"))
-        is_open = date_fin is None
         row = {
             "uid": m_uid,
             "acteur_uid": uid,
@@ -159,25 +183,15 @@ def parse_acteur(raw: dict) -> tuple[dict | None, list[dict]]:
         }
         mandate_rows.append(row)
 
-        # Pick the "current" parliamentary mandate for this legislature.
-        # ⚠️ Il faut EXIGER typeOrgane == "ASSEMBLEE" : un même député peut
-        # avoir plusieurs mandats de type "MandatParlementaire_type" (BUREAU,
-        # PRESIDENCE, COMMISSION en tant que président…) et seul le mandat
-        # ASSEMBLEE porte la circonscription (champ election.lieu). Sans ce
-        # filtre, ~50 députés (ceux ayant un mandat de bureau/présidence qui
-        # précède dans le JSON) se retrouvaient sans circo/département.
-        if (
-            type_organe == "ASSEMBLEE"
-            and m.get("@xsi:type") == "MandatParlementaire_type"
-            and leg == settings.legislature
-            and is_open
-            and parl_mandate is None
-        ):
-            parl_mandate = m
-        if type_organe == "GP" and leg == settings.legislature and is_open and gp_mandate is None:
-            gp_mandate = m
-        if type_organe == "PARPOL" and is_open and parpol_mandate is None:
+        if type_organe == "ASSEMBLEE" and leg == settings.legislature:
+            parl_candidates.append(m)
+        if type_organe == "GP" and leg == settings.legislature:
+            gp_candidates.append(m)
+        if type_organe == "PARPOL" and date_fin is None and parpol_mandate is None:
             parpol_mandate = m
+
+    parl_mandate = _pick_best(parl_candidates, prefer=_has_circo)
+    gp_mandate = _pick_best(gp_candidates)
 
     # ----- circonscription / election (from parl_mandate) -----
     region = departement = departement_code = None
@@ -293,12 +307,41 @@ def ingest_amo(conn: sqlite3.Connection, zip_path: Path) -> dict[str, int]:
         conn.execute("COMMIT")
     log.info("ingest_amo_organes_done", extra={"count": org_seen})
 
-    # 2. Deputies + mandates.
+    # 2a. "Divisés" format detection (AMO30 / AMO50) : acteur, mandat and
+    #     organe live in separate JSON files. The current legislature's AMO10
+    #     embeds the mandats inside each acteur file ; older legislatures only
+    #     publish the divided dumps. When we see a `mandat/` directory we build
+    #     a {acteurRef -> [mandat dicts]} index and inject it into each acteur
+    #     before parsing, so `parse_acteur` works unchanged for both layouts.
+    mandats_by_acteur: dict[str, list[dict]] = {}
+    with zipfile.ZipFile(zip_path) as _z:
+        _is_divises = any(
+            n.endswith(".json") and (n.startswith("mandat/") or n.startswith("json/mandat/"))
+            for n in _z.namelist()
+        )
+    if _is_divises:
+        log.info("ingest_amo_divises_format", extra={"zip": str(zip_path)})
+        n_mand = 0
+        for fname, raw in _iter_zip_json(zip_path, "mandat"):
+            m = raw.get("mandat") or {}
+            ref = text_of(m.get("acteurRef"))
+            if not ref:
+                continue
+            mandats_by_acteur.setdefault(ref, []).append(m)
+            n_mand += 1
+        log.info("ingest_amo_divises_mandats_indexed", extra={"count": n_mand})
+
+    # 2b. Deputies + mandates.
     log.info("ingest_amo_acteurs_start")
     deputy_rows: list[tuple] = []
     mandate_rows: list[tuple] = []
     for fname, raw in _iter_zip_json(zip_path, "acteur"):
         try:
+            if _is_divises:
+                a = raw.get("acteur")
+                if isinstance(a, dict):
+                    a_uid = text_of(a.get("uid"))
+                    a["mandats"] = {"mandat": mandats_by_acteur.get(a_uid, [])}
             dep, mans = parse_acteur(raw)
             if dep is None:
                 continue

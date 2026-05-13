@@ -8,7 +8,7 @@
 {% set chart_data = [] %}
 {% for r in rows %}{% set _ = chart_data.append({'label': r.ministere, 'value': r.questions_total, 'color': '#4f46e5'}) %}{% endfor %}
 {{ hbar_chart(chart_data, value_label='questions') }}
-{{ chart_button(chart_data, "Top ministères interpellés — 17ᵉ législature", subtitle="Nombre de questions parlementaires reçues", unit="questions") }}
+{{ chart_button(chart_data, "Top ministères interpellés — " ~ current_legislature() ~ "ᵉ législature", subtitle="Nombre de questions parlementaires reçues", unit="questions") }}
 
 {% set delay_data = [] %}
 {% for r in rows %}{% if r.delai_moyen %}{% set _ = delay_data.append({'label': r.ministere, 'value': r.delai_moyen, 'color': '#d97706'}) %}{% endif %}{% endfor %}

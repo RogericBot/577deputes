@@ -4,14 +4,14 @@
 {% block content %}
 <nav class="breadcrumb"><a href="/stats">Stats</a> / Scrutins</nav>
 <h1>Discipline des groupes & participation</h1>
-<p class="muted">Calculs basés sur les <strong>{{ data.nb_scrutins_total | fint }} scrutins publics nominatifs</strong> de la 17ᵉ législature. Les votes à main levée n'apparaissent pas et ne sont jamais inférés.</p>
+<p class="muted">Calculs basés sur les <strong>{{ data.nb_scrutins_total | fint }} scrutins publics nominatifs</strong> de la {{ current_legislature() }}ᵉ législature. Les votes à main levée n'apparaissent pas et ne sont jamais inférés.</p>
 
 {% set chart_disc = [] %}
 {% for r in data.discipline %}{% if r.expressed %}{% set _ = chart_disc.append({'label': (r.abrege or '?') ~ ' — ' ~ (r.libelle or ''), 'value': ((r.aligned or 0) * 100.0 / r.expressed) | round(1), 'color': r.couleur or '#4f46e5'}) %}{% endif %}{% endfor %}
 {% set chart_part = [] %}
 {% for r in data.top_participants %}{% set _ = chart_part.append({'label': r.nom_complet ~ (' · ' ~ r.groupe_abrege if r.groupe_abrege else ''), 'value': r.expressed, 'color': r.groupe_couleur or '#4f46e5'}) %}{% endfor %}
 
-<section class="sharable" data-share-title="Discipline interne par groupe — Scrutins publics 17ᵉ lég.">
+<section class="sharable" data-share-title="Discipline interne par groupe — Scrutins publics {{ current_legislature() }}ᵉ lég.">
   <h2>Discipline interne par groupe</h2>
   {{ chart_button(chart_disc, "Discipline interne par groupe", subtitle="% de votes alignés sur la majorité du groupe (scrutins publics nominatifs)", unit="%") }}
   <p class="muted small">Ratio de votes alignés sur la position majoritaire du groupe, calculé sur l'ensemble des votes exprimés (pour / contre / abstention) des membres du groupe sur tous les scrutins.</p>

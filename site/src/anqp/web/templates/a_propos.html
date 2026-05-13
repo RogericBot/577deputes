@@ -4,6 +4,15 @@
 
 <h1>À propos & méthodologie</h1>
 
+{% if current_legislature() != 17 %}
+<p class="pill-warn" style="max-width: 760px;">
+  Cette page décrit la méthodologie, les sources et les volumes de la
+  <strong>17ᵉ législature</strong> — le périmètre principal du site. Les chiffres,
+  tailles de fichiers et notes ci-dessous s'y rapportent ; la {{ current_legislature() }}ᵉ
+  législature suit la même méthodologie, avec ses propres volumes.
+</p>
+{% endif %}
+
 <p class="muted" style="max-width: 760px;">
   <strong>577députés</strong> est un explorateur indépendant de l'activité parlementaire
   de la 17ᵉ législature de l'Assemblée nationale (depuis juillet 2024).

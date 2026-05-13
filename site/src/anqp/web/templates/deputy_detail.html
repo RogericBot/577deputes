@@ -129,7 +129,7 @@
     <div>
       <h3>Participation aux scrutins publics</h3>
       <ul class="kv">
-        <li><span>Scrutins publics totaux (L17)</span> <strong>{{ legislative.nb_scrutins_total | fint }}</strong></li>
+        <li><span>Scrutins publics totaux (L{{ current_legislature() }})</span> <strong>{{ legislative.nb_scrutins_total | fint }}</strong></li>
         <li><span>Votes individuels enregistrés</span> <strong>{{ vt.total | fint }}</strong></li>
         <li><span>Pour / Contre / Abst.</span> <strong>{{ vt.pour | fint }} / {{ vt.contre | fint }} / {{ vt.abstention | fint }}</strong></li>
         <li><span>Non-votant</span> <strong class="muted">{{ vt.non_votant | fint }}</strong></li>

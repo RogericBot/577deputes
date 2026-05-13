@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}577députés{% endblock %} — Activité parlementaire · XVIIᵉ législature</title>
-  {% set _default_desc = "Explorateur indépendant de l'activité parlementaire : textes, amendements, scrutins et questions de la 17ᵉ législature de l'Assemblée nationale, croisés avec les fiches des 577 députés. Données open data officielles." %}
+  <title>{% block title %}577députés{% endblock %} — Activité parlementaire · {{ current_legislature() }}ᵉ législature</title>
+  {% set _default_desc = "Explorateur indépendant de l'activité parlementaire : textes, amendements, scrutins et questions de la " ~ current_legislature() ~ "ᵉ législature de l'Assemblée nationale, croisés avec les fiches des 577 députés. Données open data officielles." %}
   {% set page_desc = meta_description | default(_default_desc, true) %}
   {% set _base = site_base_url | default("https://577deputes.fr", true) %}
   {% set page_url = _base + (request.url.path if request else "/") %}
@@ -15,7 +15,7 @@
   {# Open Graph (Facebook, LinkedIn, Discord, WhatsApp...) #}
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="577députés">
-  <meta property="og:title" content="{% block og_title %}{{ self.title() }} — Activité parlementaire · XVIIᵉ législature{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}{{ self.title() }} — Activité parlementaire · {{ current_legislature() }}ᵉ législature{% endblock %}">
   <meta property="og:description" content="{{ page_desc }}">
   <meta property="og:url" content="{{ page_url }}">
   <meta property="og:image" content="{{ _base }}/static/og-image.png">
@@ -42,7 +42,7 @@
     <div class="container">
       <a class="brand" href="/">
         <span class="brand-mark">577</span>
-        <span class="brand-text">577députés <small>17ᵉ législature</small></span>
+        <span class="brand-text">577députés <small>{{ current_legislature() }}ᵉ législature</small></span>
       </a>
       <nav class="main-nav">
         <a href="/textes">Textes</a>
@@ -61,13 +61,12 @@
         </a>
         {% set legs = available_legislatures() %}
         {% if legs and legs | length > 1 %}
-        <form action="/legislature/switch" method="post" class="leg-switcher" id="leg-switcher">
-          <select name="leg" onchange="window.location.href='/legislature/' + this.value + '?next=' + encodeURIComponent(window.location.pathname + window.location.search)">
-            {% for l in legs %}
-              <option value="{{ l }}" {% if l == current_legislature() %}selected{% endif %}>{{ l }}ᵉ législature</option>
-            {% endfor %}
-          </select>
-        </form>
+        <select class="leg-switcher" id="leg-switcher" aria-label="Législature"
+                onchange="window.location.href='/legislature/' + this.value + '?next=' + encodeURIComponent(window.location.pathname + window.location.search)">
+          {% for l in legs %}
+            <option value="{{ l }}" {% if l == current_legislature() %}selected{% endif %}>{{ l }}ᵉ législature</option>
+          {% endfor %}
+        </select>
         {% endif %}
       </nav>
     </div>
@@ -78,7 +77,7 @@
   <footer class="app-footer">
     <div class="container">
       <p class="footer-main">
-        <strong>577députés</strong> · activité parlementaire de la 17ᵉ législature
+        <strong>577députés</strong> · activité parlementaire de la {{ current_legislature() }}ᵉ législature
         — <a href="/a-propos">méthodologie & sources</a>
         · <a href="/mentions-legales">mentions légales</a>
         · <a href="/api/docs">API</a>

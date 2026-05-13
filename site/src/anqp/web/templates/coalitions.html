@@ -7,7 +7,7 @@
 <div class="coalitions-intro">
   Analyse des blocs politiques et de leurs alliances de vote sur les
   {% if data.overview %}<strong>{{ data.overview.n_scrutins_total | fint }}</strong>{% else %}<strong>~6 500</strong>{% endif %}
-  scrutins publics nominatifs de la 17<sup>e</sup> législature. Toutes les
+  scrutins publics nominatifs de la {{ current_legislature() }}<sup>e</sup> législature. Toutes les
   métriques sont calculées à partir des positions majoritaires
   officielles publiées par l'Assemblée nationale (champ
   <code>positionMajoritaire</code> de chaque scrutin × groupe).
@@ -30,8 +30,7 @@
   <p class="muted">
     Les groupes parlementaires (GP) sont les unités de décision réelles à
     l'Assemblée. Ils sont ici regroupés par <strong>bloc politique de fait</strong>
-    selon les alliances électorales 2024 et les soutiens parlementaires
-    publics. <a href="/a-propos#coalitions">Méthodo →</a>
+    {{ data.overview.bloc_intro }}. <a href="/a-propos#coalitions">Méthodo →</a>
   </p>
 
   <div class="blocs-grid">
@@ -89,8 +88,8 @@
   <p class="muted small">
     Les blocs ne sont <strong>pas</strong> des groupes parlementaires
     officiels. Ce sont des regroupements politiques de fait, basés sur
-    les alliances électorales 2024 (NFP), les soutiens parlementaires
-    publics du gouvernement, et la position institutionnelle (charnières).
+    les alliances électorales et les soutiens parlementaires publics
+    propres à la législature, et la position institutionnelle (charnières).
     Le mapping est documenté dans la page À propos.
   </p>
   <p class="muted small">
@@ -117,7 +116,7 @@
     scrutins où les deux groupes se sont exprimés.
   </p>
 
-  <div class="matrix-wrap sharable" data-share-title="Matrice de cohésion entre groupes — 17ᵉ législature">
+  <div class="matrix-wrap sharable" data-share-title="Matrice de cohésion entre groupes — {{ current_legislature() }}ᵉ législature">
     <table class="data-table matrix">
       <thead>
         <tr>

@@ -40,10 +40,27 @@ console = Console()
 log = get_logger(__name__)
 
 
+def _apply_legislature(legislature: int | None) -> None:
+    """Re-point ``settings`` (legislature / sources / db_path) when a CLI
+    command is given an explicit ``--legislature``. Each legislature has its
+    own DB file (strict isolation) ; the default (current) one keeps
+    ``data/anqp.db``."""
+    if legislature is None:
+        return
+    from .config import build_sources, db_path_for
+    settings.legislature = legislature
+    settings.sources = build_sources(legislature)
+    settings.db_path = db_path_for(legislature)
+
+
 @app.command()
-def init() -> None:
+def init(
+    legislature: int = typer.Option(None, "--legislature", "-l",
+                                    help="Target legislature (default: current)."),
+) -> None:
     """Create / migrate the SQLite schema."""
     configure()
+    _apply_legislature(legislature)
     conn = connect()
     init_schema(conn)
     conn.close()
@@ -62,11 +79,21 @@ def bootstrap(
         None, "--source", "-s",
         help="Limit to specific source(s): AMO10, QE, QOSD, QAG. Repeatable."
     ),
+    legislature: int = typer.Option(
+        None, "--legislature", "-l",
+        help="Target legislature (default: current = 17). Past legislatures "
+             "are written to their own DB file (data/anqp-N.db)."
+    ),
 ) -> None:
     """Full ingestion: download all sources, parse, upsert."""
     configure()
+    _apply_legislature(legislature)
+    from .config import DEFAULT_LEGISLATURE
     sources = source or list(settings.sources.keys())
-    console.print(f"[bold]Bootstrap[/bold] — sources: {', '.join(sources)}")
+    console.print(
+        f"[bold]Bootstrap[/bold] — legislature {settings.legislature} → "
+        f"{settings.db_path.name} — sources: {', '.join(sources)}"
+    )
     res = run_ingestion(sources, force=force, skip_download=skip_download)
     _print_results(res)
     # Cache deputy photos after AMO has populated the deputies table.
@@ -80,8 +107,10 @@ def bootstrap(
             f"{photo_res['cached']} cached · {photo_res['missing']} not published"
         )
 
-    # Population + inscrits per circonscription.
-    if not source:
+    # Population + inscrits per circonscription — only for the current
+    # legislature (the INSEE/Intérieur figures we have are the 2021 census +
+    # the 2024 first round, i.e. the 17ᵉ-legislature picture).
+    if not source and settings.legislature == DEFAULT_LEGISLATURE:
         try:
             from .ingestion.circo_stats import ingest_circo_stats
             conn = connect()
@@ -101,11 +130,17 @@ def update(
         None, "--source", "-s",
         help="Limit to specific source(s); default = all."
     ),
+    legislature: int = typer.Option(None, "--legislature", "-l",
+                                    help="Target legislature (default: current)."),
 ) -> None:
     """Incremental update — re-run all sources; cache hits skip ingestion."""
     configure()
+    _apply_legislature(legislature)
     sources = source or list(settings.sources.keys())
-    console.print(f"[bold]Update[/bold] — sources: {', '.join(sources)}")
+    console.print(
+        f"[bold]Update[/bold] — legislature {settings.legislature} → "
+        f"{settings.db_path.name} — sources: {', '.join(sources)}"
+    )
     res = run_ingestion(sources, force=False)
     _print_results(res)
 
@@ -132,9 +167,13 @@ def serve(
 
 
 @app.command()
-def stats() -> None:
+def stats(
+    legislature: int = typer.Option(None, "--legislature", "-l",
+                                    help="Which legislature's DB to summarise."),
+) -> None:
     """Print a one-screen summary of the DB."""
     configure()
+    _apply_legislature(legislature)
     if not settings.db_path.exists():
         console.print("[red]✗[/red] DB not found. Run bootstrap first.")
         raise typer.Exit(1)
@@ -200,6 +239,7 @@ def cluster_amendements(
 ) -> None:
     """Detect near-identical amendments via MinHash. Updates `amendement_clusters`."""
     configure()
+    _apply_legislature(legislature)
     from .ingestion.amd_clusters import compute_clusters
     conn = connect()
     leg = legislature if legislature is not None else settings.legislature
@@ -212,9 +252,13 @@ def cluster_amendements(
 
 
 @app.command()
-def doctor() -> None:
+def doctor(
+    legislature: int = typer.Option(None, "--legislature", "-l",
+                                    help="Check the source URLs of this legislature."),
+) -> None:
     """Quick health check: env, sqlite version, source URL reachability."""
     configure()
+    _apply_legislature(legislature)
     import sqlite3 as _sql
     import httpx
     console.print(f"[bold]Python[/bold]  {sys.version.split()[0]}")

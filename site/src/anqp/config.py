@@ -70,7 +70,29 @@ def build_sources(legislature: int) -> dict[str, str]:
 # Legacy alias kept for any code reaching directly into this module.
 SOURCES = build_sources(DEFAULT_LEGISLATURE)
 
+
+def db_path_for(legislature: int) -> Path:
+    """Path of the SQLite file holding a given legislature's data.
+
+    Strict-isolation design : each legislature lives in its own DB file, so
+    a query can never accidentally mix two legislatures. The *current*
+    legislature keeps the historical name ``anqp.db`` (so the production
+    deployment and the auto-refresh loop are unaffected) ; past legislatures
+    get ``anqp-{n}.db``.
+    """
+    data_dir = PROJECT_ROOT / "data"
+    if legislature == DEFAULT_LEGISLATURE:
+        return data_dir / "anqp.db"
+    return data_dir / f"anqp-{legislature}.db"
+
+
 # Public-facing canonical URL templates for verification + UI deep links.
+def web_question_url(legislature: int, numero: int | str, type_suffix: str) -> str:
+    """questions.assemblee-nationale.fr deep link for any legislature."""
+    return f"https://questions.assemblee-nationale.fr/q{legislature}/{legislature}-{numero}{type_suffix}.htm"
+
+
+# Legacy alias (legislature 17) — kept so older call sites don't break.
 WEB_QUESTION_URL = "https://questions.assemblee-nationale.fr/q17/17-{numero}{type}.htm"
 WEB_DEPUTY_URL = "https://www.assemblee-nationale.fr/dyn/deputes/{uid}"
 
@@ -100,6 +122,9 @@ def load_settings() -> Settings:
         try:
             s.legislature = int(v)
             s.sources = build_sources(s.legislature)
+            # Each legislature has its own DB file (strict isolation). An
+            # explicit ANQP_DB_PATH below still wins if the user wants it.
+            s.db_path = db_path_for(s.legislature)
         except ValueError:
             pass
     if v := os.environ.get("ANQP_DB_PATH"):

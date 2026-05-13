@@ -19,15 +19,12 @@ log = get_logger(__name__)
 # ---------------------------------------------------------------------
 # JO publication URL builder.
 # ---------------------------------------------------------------------
-def _source_url(uid: str, qtype: str, numero: int | None) -> str:
+def _source_url(uid: str, qtype: str, numero: int | None, legislature: int | None) -> str:
     if numero is None:
         return ""
-    if qtype == "QE":
-        return f"https://questions.assemblee-nationale.fr/q17/17-{numero}QE.htm"
-    if qtype == "QOSD":
-        return f"https://questions.assemblee-nationale.fr/q17/17-{numero}QOSD.htm"
-    if qtype == "QG":
-        return f"https://questions.assemblee-nationale.fr/q17/17-{numero}QG.htm"
+    leg = legislature or settings.legislature
+    if qtype in ("QE", "QOSD", "QG"):
+        return f"https://questions.assemblee-nationale.fr/q{leg}/{leg}-{numero}{qtype}.htm"
     return ""
 
 
@@ -162,7 +159,7 @@ def parse_question(raw: dict) -> dict | None:
         "date_publication_question": date_publication_question,
         "statut": statut,
         "delai_reponse_jours": _delta_days(date_question, date_reponse),
-        "source_url": _source_url(uid, qtype, numero),
+        "source_url": _source_url(uid, qtype, numero, legislature),
         "raw_json": json.dumps(raw, ensure_ascii=False),
     }
 

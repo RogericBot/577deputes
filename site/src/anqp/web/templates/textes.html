@@ -5,13 +5,13 @@
 
 {{ texte_subnav('textes') }}
 
-<h1>Textes législatifs — 17ᵉ législature</h1>
+<h1>Textes législatifs — {{ current_legislature() }}ᵉ législature</h1>
 <p class="muted">
   {{ result.total | fint }} dossier{% if result.total > 1 %}s{% endif %} affiché{% if result.total > 1 %}s{% endif %}
   (projets et propositions de loi, rapports d'information, conventions…)
-  pour la <strong>17ᵉ législature</strong>.
+  pour la <strong>{{ current_legislature() }}ᵉ législature</strong>.
   <span class="small">Ce nombre peut différer d'autres compteurs du site selon le périmètre :
-  certains dossiers ouverts sous la 16ᵉ législature et poursuivis sous la 17ᵉ sont indexés
+  certains dossiers ouverts sous la législature précédente et poursuivis sous celle-ci sont indexés
   mais rattachés à leur législature d'origine.</span>
 </p>
 

@@ -4,12 +4,12 @@
 {% block content %}
 <nav class="breadcrumb"><a href="/stats">Stats</a> / Par groupe</nav>
 <h1>Activité par groupe parlementaire</h1>
-<section class="sharable" data-share-title="Activité par groupe parlementaire — 17ᵉ législature">
+<section class="sharable" data-share-title="Activité par groupe parlementaire — {{ current_legislature() }}ᵉ législature">
 
 {% set chart_data = [] %}
 {% for r in rows %}{% set _ = chart_data.append({'label': r.libelle_abrege ~ ' — ' ~ r.libelle, 'value': r.questions_total, 'color': r.couleur or '#6b7280'}) %}{% endfor %}
 {{ hbar_chart(chart_data, value_label='questions') }}
-{{ chart_button(chart_data, "Questions parlementaires par groupe — 17ᵉ législature", subtitle="Nombre de questions posées par les députés de chaque groupe", unit="questions") }}
+{{ chart_button(chart_data, "Questions parlementaires par groupe — " ~ current_legislature() ~ "ᵉ législature", subtitle="Nombre de questions posées par les députés de chaque groupe", unit="questions") }}
 
 <table class="data-table">
   <thead>

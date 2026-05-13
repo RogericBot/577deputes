@@ -11,7 +11,7 @@
   Méthode complète documentée en <a href="/a-propos">/a-propos</a>.
 </p>
 
-<section class="card sharable" data-share-title="Doublons d'amendements — 17ᵉ législature">
+<section class="card sharable" data-share-title="Doublons d'amendements — {{ current_legislature() }}ᵉ législature">
   <h2>Vue d'ensemble</h2>
   <div class="cluster-overview-grid">
     <div class="cluster-overview-stat">
@@ -29,7 +29,7 @@
   </div>
 </section>
 
-<section class="card sharable" data-share-title="Doublons par type — 17ᵉ législature">
+<section class="card sharable" data-share-title="Doublons par type — {{ current_legislature() }}ᵉ législature">
   <h2>Répartition par type de cluster</h2>
   <p class="muted small">
     Combien de clusters de chaque type, et combien d'amendements ils représentent.
@@ -39,7 +39,7 @@
     {% set _ = chart.append({'label': t.label, 'value': t.n_clusters, 'color': t.color}) %}
   {% endfor %}
   {{ donut_chart(chart, value_label='clusters') }}
-  {{ chart_button(chart, "Clusters d'amendements par type", subtitle="17ᵉ législature — Distribution typologique", unit="clusters") }}
+  {{ chart_button(chart, "Clusters d'amendements par type", subtitle=current_legislature() ~ "ᵉ législature — Distribution typologique", unit="clusters") }}
 
   <ul class="cluster-type-legend" style="margin-top: 16px;">
     {% for t in overview.by_type %}
@@ -55,7 +55,7 @@
   </ul>
 </section>
 
-<section class="card sharable" data-share-title="Top 15 textes les plus dupliqués — 17ᵉ législature">
+<section class="card sharable" data-share-title="Top 15 textes les plus dupliqués — {{ current_legislature() }}ᵉ législature">
   <h2>Top 15 textes — par volume d'amendements en doublons</h2>
   <p class="muted small">Chaque cellule colorée indique le nombre de clusters de ce type pour le texte.</p>
   <div style="overflow-x: auto;">
@@ -96,7 +96,7 @@
   {{ chart_button(chart_textes, "Top 15 textes — Amendements en doublons", subtitle="Volume d'amendements quasi-identiques par texte", unit="amendements") }}
 </section>
 
-<section class="card sharable" data-share-title="Top 15 députés signataires de doublons — 17ᵉ législature">
+<section class="card sharable" data-share-title="Top 15 députés signataires de doublons — {{ current_legislature() }}ᵉ législature">
   <h2>Top 15 députés — par volume d'amendements en doublons</h2>
   <p class="muted small">
     Députés dont les amendements apparaissent le plus souvent dans un cluster

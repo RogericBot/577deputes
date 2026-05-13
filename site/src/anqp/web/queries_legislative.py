@@ -1163,45 +1163,98 @@ def list_amendement_clusters_by_dossier(
 # COALITIONS — analyses des blocs et alliances de vote
 # =====================================================================
 
-# Mapping groupe officiel -> bloc parlementaire de fait (17e legislature).
-# Etabli a partir des alliances electorales 2024 (NFP) et des soutiens
-# parlementaires reconnus publiquement. Ce mapping est documente dans la
-# page A propos pour transparence.
-BLOC_BY_ABREGE = {
-    # Nouveau Front Populaire
-    "LFI-NFP": "Nouveau Front Populaire",
-    "LFI": "Nouveau Front Populaire",
-    "SOC": "Nouveau Front Populaire",
-    "EcoS": "Nouveau Front Populaire",
-    "ECOS": "Nouveau Front Populaire",
-    "EELV": "Nouveau Front Populaire",
-    "GDR": "Nouveau Front Populaire",
-    "GDR-NUPES": "Nouveau Front Populaire",
-    # Bloc central / macroniste
-    "EPR": "Bloc central",
-    "RE": "Bloc central",
-    "REN": "Bloc central",
-    "DEM": "Bloc central",
-    "Dem": "Bloc central",
-    "MoDem": "Bloc central",
-    "HOR": "Bloc central",
-    # Charnieres (vote au cas par cas, pivot sur les scrutins serres)
-    "DR": "Charnière",
-    "LR": "Charnière",
-    "LIOT": "Charnière",
-    # Bloc RN
-    "RN": "Rassemblement National",
-    "UDR": "Rassemblement National",
-    # Non inscrits
-    "NI": "Non inscrits",
+# Mapping groupe officiel -> bloc parlementaire de fait, PAR LÉGISLATURE.
+# Les blocs ne sont PAS des groupes parlementaires officiels : ce sont des
+# regroupements politiques de fait (alliances électorales, soutiens publics
+# au gouvernement, position institutionnelle). Documenté dans /a-propos#coalitions.
+# La 16e (2022-2024) et la 17e (depuis 2024) ont des configurations différentes.
+_BLOC_DEFS: dict[int, dict] = {
+    17: {
+        "order": ["Nouveau Front Populaire", "Bloc central", "Charnière",
+                  "Rassemblement National", "Non inscrits", "Non classé"],
+        "intro": ("selon les alliances électorales 2024 (Nouveau Front Populaire) "
+                  "et les soutiens parlementaires publics du gouvernement"),
+        "by_abrege": {
+            "LFI-NFP": "Nouveau Front Populaire", "LFI": "Nouveau Front Populaire",
+            "SOC": "Nouveau Front Populaire", "EcoS": "Nouveau Front Populaire",
+            "ECOS": "Nouveau Front Populaire", "EELV": "Nouveau Front Populaire",
+            "GDR": "Nouveau Front Populaire", "GDR-NUPES": "Nouveau Front Populaire",
+            "EPR": "Bloc central", "RE": "Bloc central", "REN": "Bloc central",
+            "DEM": "Bloc central", "Dem": "Bloc central", "MoDem": "Bloc central",
+            "HOR": "Bloc central",
+            "DR": "Charnière", "LR": "Charnière", "LIOT": "Charnière",
+            "RN": "Rassemblement National", "UDR": "Rassemblement National",
+            "NI": "Non inscrits",
+        },
+        "colors": {
+            "Nouveau Front Populaire": "#dc2626", "Bloc central": "#4f46e5",
+            "Charnière": "#d97706", "Rassemblement National": "#1e3a8a",
+            "Non inscrits": "#6b7280", "Non classé": "#94a3b8",
+        },
+        "subtitles": {
+            "Nouveau Front Populaire": "Alliance électorale 2024 — gauche unie",
+            "Bloc central": "Soutiens du gouvernement",
+            "Charnière": "Centristes-droite indépendants — votent au cas par cas",
+            "Rassemblement National": "RN et apparentés",
+            "Non inscrits": "Députés sans groupe",
+            "Non classé": "Mapping non disponible",
+        },
+    },
+    16: {
+        "order": ["NUPES", "Ensemble (majorité présidentielle)", "Les Républicains",
+                  "Rassemblement National", "LIOT", "Non inscrits", "Non classé"],
+        "intro": ("selon les alliances électorales 2022 (NUPES à gauche, coalition "
+                  "Ensemble pour la majorité présidentielle relative) et les groupes "
+                  "constitués sur la législature"),
+        "by_abrege": {
+            "LFI - NUPES": "NUPES", "LFI-NUPES": "NUPES", "LFI": "NUPES",
+            "Ecolo - NUPES": "NUPES", "Écolo - NUPES": "NUPES", "Ecolo-NUPES": "NUPES",
+            "ECOLO": "NUPES", "EcoS": "NUPES",
+            "GDR - NUPES": "NUPES", "GDR-NUPES": "NUPES", "GDR": "NUPES",
+            "SOC": "NUPES",
+            "RE": "Ensemble (majorité présidentielle)", "REN": "Ensemble (majorité présidentielle)",
+            "Renaissance": "Ensemble (majorité présidentielle)",
+            "Dem": "Ensemble (majorité présidentielle)", "DEM": "Ensemble (majorité présidentielle)",
+            "MoDem": "Ensemble (majorité présidentielle)",
+            "HOR": "Ensemble (majorité présidentielle)", "Horizons": "Ensemble (majorité présidentielle)",
+            "LR": "Les Républicains", "DR": "Les Républicains",
+            "RN": "Rassemblement National",
+            "LIOT": "LIOT",
+            "NI": "Non inscrits",
+        },
+        "colors": {
+            "NUPES": "#dc2626", "Ensemble (majorité présidentielle)": "#f59e0b",
+            "Les Républicains": "#2563eb", "Rassemblement National": "#1e3a8a",
+            "LIOT": "#0891b2", "Non inscrits": "#6b7280", "Non classé": "#94a3b8",
+        },
+        "subtitles": {
+            "NUPES": "Alliance électorale 2022 — gauche unie (LFI, Écolo, GDR, SOC)",
+            "Ensemble (majorité présidentielle)": "Coalition Ensemble — majorité relative",
+            "Les Républicains": "Opposition de droite",
+            "Rassemblement National": "Extrême droite",
+            "LIOT": "Indépendants, Outre-mer et territoires — votent au cas par cas",
+            "Non inscrits": "Députés sans groupe",
+            "Non classé": "Mapping non disponible",
+        },
+    },
 }
 
 
-def _bloc_for(abrege: str | None) -> str:
+def _bloc_defs(leg: int | None = None) -> dict:
+    """Définition des blocs pour une législature (défaut : la 17e)."""
+    n = int(leg if leg is not None else current_legislature())
+    return _BLOC_DEFS.get(n) or _BLOC_DEFS[17]
+
+
+# Compat : ancienne table plate (17e) — encore référencée ailleurs ?
+BLOC_BY_ABREGE = _BLOC_DEFS[17]["by_abrege"]
+
+
+def _bloc_for(abrege: str | None, leg: int | None = None) -> str:
     """Retourne le bloc parlementaire d'un groupe a partir de son abrege."""
     if not abrege:
         return "Non classé"
-    return BLOC_BY_ABREGE.get(abrege, "Non classé")
+    return _bloc_defs(leg)["by_abrege"].get(abrege, "Non classé")
 
 
 def _coalitions_groups(conn: sqlite3.Connection) -> list[dict]:
@@ -1244,33 +1297,11 @@ def coalitions_overview(conn: sqlite3.Connection) -> dict:
         "SELECT COUNT(*) AS c FROM scrutins"
     ).fetchone()["c"]
 
-    # Grouper par bloc
-    bloc_order = [
-        "Nouveau Front Populaire",
-        "Bloc central",
-        "Charnière",
-        "Rassemblement National",
-        "Non inscrits",
-        "Non classé",
-    ]
-    # Couleur dominante par bloc (utilisee comme accent visuel sur les
-    # cartes ; non politiquement signifiante au-dela du repere visuel)
-    bloc_colors = {
-        "Nouveau Front Populaire": "#dc2626",
-        "Bloc central": "#4f46e5",
-        "Charnière": "#d97706",
-        "Rassemblement National": "#1e3a8a",
-        "Non inscrits": "#6b7280",
-        "Non classé": "#94a3b8",
-    }
-    bloc_subtitles = {
-        "Nouveau Front Populaire": "Alliance électorale 2024 — gauche unie",
-        "Bloc central": "Soutiens du gouvernement",
-        "Charnière": "Centristes-droite indépendants — votent au cas par cas",
-        "Rassemblement National": "RN et alliés Ciotti",
-        "Non inscrits": "Députés sans groupe",
-        "Non classé": "Mapping non disponible",
-    }
+    # Grouper par bloc — définition propre à la législature en cours.
+    defs = _bloc_defs()
+    bloc_order = list(defs["order"])
+    bloc_colors = defs["colors"]
+    bloc_subtitles = defs["subtitles"]
     by_bloc: dict[str, list] = {b: [] for b in bloc_order}
     for g in groups:
         bloc = g.get("bloc") or "Non classé"
@@ -1305,6 +1336,8 @@ def coalitions_overview(conn: sqlite3.Connection) -> dict:
         "blocs": blocs,
         "n_groupes": len(groups),
         "n_scrutins_total": n_scrutins_total,
+        "bloc_intro": defs["intro"],
+        "legislature": int(current_legislature()),
     }
 
 

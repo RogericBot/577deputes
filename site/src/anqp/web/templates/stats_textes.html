@@ -4,7 +4,7 @@
 {% block title %}Stats — Textes{% endblock %}
 {% block content %}
 <nav class="breadcrumb"><a href="/stats">Stats</a> / Textes</nav>
-<h1>Volume et adoption des textes (17ᵉ législature)</h1>
+<h1>Volume et adoption des textes ({{ current_legislature() }}ᵉ législature)</h1>
 
 <section class="card">
   <h2>Par statut</h2>
@@ -12,7 +12,7 @@
   {% set chart = [] %}
   {% for r in data.by_status %}{% set _ = chart.append({'label': r.statut | statut_dossier, 'value': r.c, 'color': statut_dossier_color(r.statut)}) %}{% endfor %}
   {{ donut_chart(chart, value_label='dossiers') }}
-  {{ chart_button(chart, "Textes par statut — 17ᵉ législature", subtitle="Répartition des dossiers législatifs", unit="dossiers") }}
+  {{ chart_button(chart, "Textes par statut — " ~ current_legislature() ~ "ᵉ législature", subtitle="Répartition des dossiers législatifs", unit="dossiers") }}
 </section>
 
 <section>
@@ -39,6 +39,6 @@
   {% set ch = [] %}
   {% for r in data.by_month %}{% set _ = ch.append({'label': r.month, 'value': r.c, 'color': '#0ea5e9'}) %}{% endfor %}
   {{ hbar_chart(ch, value_label='dossiers') }}
-  {{ chart_button(ch, "Volume mensuel des dépôts de textes", subtitle="Nombre de dossiers déposés par mois — 17ᵉ législature", unit="dossiers") }}
+  {{ chart_button(ch, "Volume mensuel des dépôts de textes", subtitle="Nombre de dossiers déposés par mois — " ~ current_legislature() ~ "ᵉ législature", unit="dossiers") }}
 </section>
 {% endblock %}
