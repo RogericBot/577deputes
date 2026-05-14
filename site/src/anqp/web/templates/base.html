@@ -5,11 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}577députés{% endblock %} — Activité parlementaire · {{ current_legislature() }}ᵉ législature</title>
   {% set _default_desc = "Explorateur indépendant de l'activité parlementaire : textes, amendements, scrutins et questions de la " ~ current_legislature() ~ "ᵉ législature de l'Assemblée nationale, croisés avec les fiches des 577 députés. Données open data officielles." %}
-  {% set page_desc = meta_description | default(_default_desc, true) %}
+  {# Description : ordre de priorité = (1) variable `meta_description` passée par
+     le handler Python ; (2) {% block description %} défini par le template ;
+     (3) description générique du site ci-dessus. Affecte aussi og:description
+     et twitter:description plus bas. #}
+  {% set _block_desc %}{% block description %}{% endblock %}{% endset %}
+  {% set page_desc = meta_description | default((_block_desc | trim) or _default_desc, true) %}
   {% set _base = site_base_url | default("https://577deputes.fr", true) %}
   {% set page_url = _base + (request.url.path if request else "/") %}
   <meta name="description" content="{{ page_desc }}">
-  <meta name="robots" content="index, follow">
+  {% block robots %}<meta name="robots" content="index, follow">{% endblock %}
   <link rel="canonical" href="{{ page_url }}">
 
   {# Open Graph (Facebook, LinkedIn, Discord, WhatsApp...) #}
@@ -30,33 +35,84 @@
   <meta name="twitter:image" content="{{ _base }}/static/og-image.png">
 
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="64x64" href="/static/favicon-64.png">
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
   <script defer src="/static/share.js"></script>
   <script defer src="/static/chart-modal.js"></script>
   <script defer src="/static/share-page.js"></script>
   <script defer src="/static/legislature-switcher.js"></script>
+  <script defer src="/static/nav-dropdown.js"></script>
+
+  {# JSON-LD sitewide : signale à Google le site + sa recherche
+     interne (permet l'affichage d'une barre de recherche directement
+     dans les résultats Google pour la requête « 577deputes »). #}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "577députés",
+    "alternateName": "577deputes.fr",
+    "url": "{{ _base }}/",
+    "inLanguage": "fr-FR",
+    "description": {{ _default_desc | tojson }},
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "{{ _base }}/recherche?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+  {# JSON-LD spécifique à la page (Person, Article, BreadcrumbList, etc.) #}
+  {% block jsonld %}{% endblock %}
 
   {% block extra_head %}{% endblock %}
 </head>
 <body>
   <header class="app-header">
     <div class="container">
-      <a class="brand" href="/">
-        <span class="brand-mark">577</span>
+      <a class="brand" href="/" aria-label="577députés — Accueil">
+        <img class="brand-mark" src="/static/logo-mark.png" alt="" width="120" height="44">
         <span class="brand-text">577députés <small>{{ current_legislature() }}ᵉ législature</small></span>
       </a>
+      {% set _path = (request.url.path if request else '/') %}
+      {% set _is_data_section = _path.startswith('/textes') or _path.startswith('/scrutins') or _path.startswith('/questions') %}
+      {% set _is_more_section = _path.startswith('/tops') or _path.startswith('/stats') or _path.startswith('/a-propos') %}
       <nav class="main-nav">
-        <a href="/textes">Textes</a>
-        <a href="/scrutins">Scrutins</a>
-        <a href="/questions">Questions</a>
         <a href="/deputes">Députés</a>
         <a href="/carte">Carte</a>
         <a href="/doublons">Doublons</a>
         <a href="/coalitions">Coalitions</a>
         <a href="/analyses">Analyses</a>
-        <a href="/tops">Tops</a>
-        <a href="/stats">Stats</a>
-        <a href="/a-propos">À propos</a>
+
+        <div class="nav-group">
+          <button type="button" class="nav-group-toggle{% if _is_data_section %} active{% endif %}"
+                  aria-expanded="false" aria-controls="nav-group-data">
+            Données <span class="nav-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="nav-group-menu" id="nav-group-data" role="menu" hidden>
+            <a href="/textes" role="menuitem">Textes</a>
+            <a href="/scrutins" role="menuitem">Scrutins</a>
+            <a href="/questions" role="menuitem">Questions</a>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button type="button" class="nav-group-toggle{% if _is_more_section %} active{% endif %}"
+                  aria-expanded="false" aria-controls="nav-group-more">
+            Plus <span class="nav-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="nav-group-menu" id="nav-group-more" role="menu" hidden>
+            <a href="/tops" role="menuitem">Tops</a>
+            <a href="/stats" role="menuitem">Stats</a>
+            <a href="/a-propos" role="menuitem">À propos</a>
+          </div>
+        </div>
+
         <a href="/recherche" class="nav-search" title="Recherche transverse" aria-label="Recherche">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </a>

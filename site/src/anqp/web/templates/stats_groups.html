@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import hbar_chart, chart_button %}
 {% block title %}Stats — Par groupe{% endblock %}
+{% block description %}Statistiques par groupe parlementaire à l'Assemblée nationale ({{ current_legislature() }}ᵉ législature) : volume de questions posées, taux de réponse et délai moyen pour chaque groupe.{% endblock %}
 {% block content %}
 <nav class="breadcrumb"><a href="/stats">Stats</a> / Par groupe</nav>
 <h1>Activité par groupe parlementaire</h1>

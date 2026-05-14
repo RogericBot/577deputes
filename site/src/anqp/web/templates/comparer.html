@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import group_badge %}
 {% block title %}Comparer deux députés{% endblock %}
+{% block description %}Comparez deux députés côte à côte sur 8 métriques : questions parlementaires, amendements déposés et adoptés, votes en scrutin public, discipline de groupe. Tous les députés de la {{ current_legislature() }}ᵉ législature.{% endblock %}
 {% block content %}
 
 <h1>Comparer deux députés</h1>

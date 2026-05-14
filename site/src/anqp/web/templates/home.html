@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import status_pill, group_badge, hbar_chart %}
 {% block title %}Accueil{% endblock %}
+{% block description %}Explorateur libre et complet de l'activité parlementaire à l'Assemblée nationale ({{ current_legislature() }}ᵉ législature) : 577 députés, leurs questions, amendements, votes et les textes débattus. Données 100% officielles, code source ouvert.{% endblock %}
 {% block content %}
 <section class="hero">
   <h1>577députés — Activité parlementaire de la {{ current_legislature() }}ᵉ législature</h1>

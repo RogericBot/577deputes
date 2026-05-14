@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import pagination, status_pill, group_badge %}
 {% block title %}Questions{% endblock %}
+{% block description %}Toutes les questions parlementaires de la {{ current_legislature() }}ᵉ législature à l'Assemblée nationale : écrites, orales et au Gouvernement, filtrables par auteur, groupe, ministère, thème et statut.{% endblock %}
 {% block content %}
 
 <h1>Questions parlementaires</h1>

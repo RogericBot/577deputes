@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import group_badge, pagination, chart_button %}
 {% block title %}Indépendance de vote{% endblock %}
+{% block description %}Classement des députés qui s'écartent le plus de la position majoritaire de leur groupe parlementaire à l'Assemblée nationale ({{ current_legislature() }}ᵉ législature). Calcul transparent sur les scrutins publics.{% endblock %}
 {% block content %}
 
 <h1>Indépendance de vote</h1>

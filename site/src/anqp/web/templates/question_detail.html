@@ -2,6 +2,7 @@
 {% from "_macros.html" import status_pill, group_badge %}
 {% block title %}{{ q.type | qtype_long }} n°{{ q.numero or q.uid }}{% endblock %}
 {% block og_title %}{{ q.type | qtype_long }} n°{{ q.numero or q.uid }}{% if q.titre %} : {{ q.titre | truncate(70) }}{% endif %} · 577députés{% endblock %}
+{% block description %}{{ q.type | qtype_long }} n°{{ q.numero or q.uid }}{% if q.titre %} — {{ q.titre | truncate(120) }}{% endif %}. Posée par {{ q.auteur_nom_complet or 'un député' }}{% if q.ministere_destinataire %} au ministère « {{ q.ministere_destinataire }} »{% endif %}.{% endblock %}
 {% block content %}
 
 <nav class="breadcrumb">

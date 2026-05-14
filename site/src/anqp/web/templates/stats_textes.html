@@ -2,6 +2,7 @@
 {% from "_macros.html" import hbar_chart, donut_chart, chart_button %}
 {% from "_palettes.html" import statut_dossier_color %}
 {% block title %}Stats — Textes{% endblock %}
+{% block description %}Statistiques sur les textes législatifs à l'Assemblée nationale ({{ current_legislature() }}ᵉ législature) : volume des dossiers par initiateur, par statut, dépôts mensuels.{% endblock %}
 {% block content %}
 <nav class="breadcrumb"><a href="/stats">Stats</a> / Textes</nav>
 <h1>Volume et adoption des textes ({{ current_legislature() }}ᵉ législature)</h1>

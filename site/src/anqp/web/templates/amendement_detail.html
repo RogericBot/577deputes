@@ -2,6 +2,7 @@
 {% from "_macros.html" import texte_subnav %}
 {% block title %}Amendement {{ a.numero or 'sans numéro' }}{% endblock %}
 {% block og_title %}Amendement n°{{ a.numero or 'sans numéro' }}{% if a.dossier_titre %} — {{ a.dossier_titre | truncate(60) }}{% endif %} · 577députés{% endblock %}
+{% block description %}Amendement n°{{ a.numero or 'sans numéro' }}{% if a.dossier_titre %} au texte « {{ a.dossier_titre | truncate(80) }} »{% endif %}{% if a.auteur_nom_complet %}, déposé par {{ a.auteur_nom_complet }}{% if a.groupe_abrege %} ({{ a.groupe_abrege }}){% endif %}{% endif %}{% if a.sort %}. Sort : {{ a.sort }}{% endif %}. Texte intégral et doublons détectés.{% endblock %}
 {% block content %}
 
 {{ texte_subnav('amendements') }}

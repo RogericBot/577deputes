@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import group_badge, chart_button %}
 {% block title %}Stats — Scrutins{% endblock %}
+{% block description %}Statistiques sur les scrutins publics à l'Assemblée nationale ({{ current_legislature() }}ᵉ législature) : discipline interne par groupe, top participants en scrutin nominatif, répartition des votes.{% endblock %}
 {% block content %}
 <nav class="breadcrumb"><a href="/stats">Stats</a> / Scrutins</nav>
 <h1>Discipline des groupes & participation</h1>

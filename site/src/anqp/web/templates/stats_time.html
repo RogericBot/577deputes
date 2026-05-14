@@ -2,6 +2,7 @@
 {% from "_macros.html" import line_chart, chart_button_line %}
 {% from "_palettes.html" import qtype_color %}
 {% block title %}Stats — Évolution mensuelle{% endblock %}
+{% block description %}Évolution mensuelle des questions parlementaires à l'Assemblée nationale ({{ current_legislature() }}ᵉ législature), ventilées par type (écrites, orales, au Gouvernement).{% endblock %}
 {% block content %}
 <nav class="breadcrumb"><a href="/stats">Stats</a> / Évolution mensuelle</nav>
 <h1>Volume de questions, par mois et par type</h1>

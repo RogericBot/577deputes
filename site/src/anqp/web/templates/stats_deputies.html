@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import hbar_chart, group_badge, chart_button %}
 {% block title %}Stats — Top députés{% endblock %}
+{% block description %}Top 30 des députés les plus actifs en termes de questions parlementaires posées sur la {{ current_legislature() }}ᵉ législature à l'Assemblée nationale.{% endblock %}
 {% block content %}
 <nav class="breadcrumb"><a href="/stats">Stats</a> / Top députés</nav>
 <h1>Députés les plus actifs (questions)</h1>

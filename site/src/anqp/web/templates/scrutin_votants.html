@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Scrutin {{ s.numero }} — votants{% endblock %}
+{% block description %}Liste nominative complète des votants du scrutin public n°{{ s.numero }} du {{ s.date_scrutin | fdate }} à l'Assemblée nationale, avec leur vote individuel (pour, contre, abstention, non-votant).{% endblock %}
 {% block content %}
 
 <nav class="breadcrumb">

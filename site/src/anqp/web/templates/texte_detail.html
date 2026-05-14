@@ -2,6 +2,7 @@
 {% from "_macros.html" import hbar_chart, group_badge, texte_subnav, chart_button %}
 {% block title %}{{ d.titre | truncate(60) }}{% endblock %}
 {% block og_title %}{{ d.titre | truncate(90) }} · 577députés{% endblock %}
+{% block description %}{{ (d.procedure_libelle or 'Texte') }} — « {{ d.titre | truncate(110) }} »{% if d.initiateur %}, initiateur : {{ d.initiateur }}{% endif %}{% if d.statut %}. Statut : {{ d.statut | statut_dossier }}{% endif %}. Navette, amendements et scrutins liés.{% endblock %}
 {% block content %}
 
 {{ texte_subnav('textes') }}

@@ -55,11 +55,10 @@ a:hover { color: var(--accent); text-decoration: underline; }
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
 .brand-mark {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 44px; height: 32px; padding: 0 8px;
-  background: var(--gradient-hero); color: white; border-radius: 8px;
-  font-size: 13px; font-weight: 800; letter-spacing: .02em;
-  box-shadow: 0 2px 6px rgba(79, 70, 229, .3);
+  display: inline-block;
+  height: 44px; width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .brand small { color: var(--muted); font-weight: 500; font-size: 12px; }
 .main-nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
@@ -704,6 +703,19 @@ details[open] > summary { margin-bottom: 8px; }
   z-index: 5;
 }
 .sharable:hover > .share-bar { opacity: 1; }
+/* Filigrane logo discret en bas à droite de chaque bloc partageable.
+   Visible sur le site ET capturé dans le PNG exporté (background-image
+   sur ::after est rendu par les navigateurs dans foreignObject SVG). */
+.sharable::after {
+  content: "";
+  position: absolute;
+  right: 10px; bottom: 10px;
+  width: 76px; height: 28px;
+  background: url(/static/logo-mark.png) no-repeat center / contain;
+  opacity: .45;
+  pointer-events: none;
+  z-index: 1;
+}
 .btn-share {
   padding: 4px 10px; font-size: 11px; font-weight: 500;
   background: var(--surface); color: var(--ink);
@@ -1627,4 +1639,48 @@ html, body { overflow-x: hidden; max-width: 100%; }
   margin-top: 8px;
   color: var(--primary);
   font-weight: 600;
+}
+
+/* ---------- nav dropdowns (« Données ▾ » / « Plus ▾ ») ---------- */
+.nav-group { position: relative; }
+.nav-group-toggle {
+  appearance: none; background: transparent; border: 0; cursor: pointer;
+  color: var(--ink); padding: 8px 12px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 500; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 4px;
+  transition: var(--transition);
+}
+.nav-group-toggle:hover,
+.nav-group-toggle[aria-expanded="true"] {
+  color: var(--primary); background: var(--primary-soft);
+}
+.nav-group-toggle.active { color: var(--primary); }
+.nav-caret { font-size: 11px; line-height: 1; opacity: .7; }
+.nav-group-toggle[aria-expanded="true"] .nav-caret { transform: rotate(180deg); }
+
+.nav-group-menu {
+  position: absolute; top: calc(100% + 4px); left: 0;
+  min-width: 180px; padding: 6px; z-index: 20;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.nav-group-menu[hidden] { display: none; }
+.nav-group-menu a {
+  color: var(--ink); padding: 8px 12px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 500; text-decoration: none;
+  transition: var(--transition);
+  display: block;
+}
+.nav-group-menu a:hover {
+  color: var(--primary); background: var(--primary-soft);
+  text-decoration: none;
+}
+
+/* En mobile, le menu déroulant s'ouvre en pleine largeur sous le bouton. */
+@media (max-width: 720px) {
+  .nav-group-menu {
+    position: static; box-shadow: none; border: 0;
+    background: transparent; padding: 0 0 0 16px; min-width: 0;
+  }
 }

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import pagination, group_badge, texte_subnav %}
 {% block title %}Amendements en doublons{% endblock %}
+{% block description %}{{ overview.total_clusters | fint }} clusters d'amendements quasi-identiques détectés sur la {{ current_legislature() }}ᵉ législature de l'Assemblée nationale, classés en 4 catégories : dépôt en masse, convergence inter-groupes, amplification, réutilisation.{% endblock %}
 {% block content %}
 
 {{ texte_subnav('clusters') }}

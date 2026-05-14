@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import pagination %}
 {% block title %}Scrutins publics{% endblock %}
+{% block description %}Tous les scrutins publics nominatifs de la {{ current_legislature() }}ᵉ législature à l'Assemblée nationale, avec décompte officiel, ventilation par groupe, discipline de vote et liste nominative.{% endblock %}
 {% block content %}
 
 <h1>Scrutins publics nominatifs — {{ current_legislature() }}ᵉ législature</h1>

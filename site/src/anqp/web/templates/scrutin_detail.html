@@ -2,6 +2,7 @@
 {% from "_macros.html" import chart_button %}
 {% block title %}Scrutin {{ s.numero }}{% endblock %}
 {% block og_title %}Scrutin n°{{ s.numero }}{% if s.titre or s.objet %} — {{ (s.titre or s.objet) | truncate(70) }}{% endif %} · 577députés{% endblock %}
+{% block description %}Scrutin public nominatif n°{{ s.numero }} du {{ s.date_scrutin | fdate }} à l'Assemblée nationale{% if s.titre or s.objet %} : {{ (s.titre or s.objet) | truncate(110) }}{% endif %}. Décompte officiel, ventilation par groupe, discipline de vote, liste nominative.{% endblock %}
 {% block content %}
 
 <nav class="breadcrumb">

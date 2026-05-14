@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import pagination, texte_subnav %}
 {% block title %}Textes{% endblock %}
+{% block description %}Tous les dossiers législatifs de la {{ current_legislature() }}ᵉ législature à l'Assemblée nationale : projets et propositions de loi, résolutions, rapports — avec leur état d'avancement, leurs amendements et leurs scrutins.{% endblock %}
 {% block content %}
 
 {{ texte_subnav('textes') }}

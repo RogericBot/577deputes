@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import pagination, texte_subnav %}
 {% block title %}Amendements{% endblock %}
+{% block description %}Tous les amendements déposés à l'Assemblée nationale ({{ current_legislature() }}ᵉ législature), commission et séance, filtrables par auteur, groupe parlementaire, texte ou sort en séance.{% endblock %}
 {% block content %}
 
 {{ texte_subnav('amendements') }}

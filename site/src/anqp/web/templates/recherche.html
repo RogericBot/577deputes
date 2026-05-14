@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import group_badge %}
 {% block title %}Recherche{% if q %} — {{ q }}{% endif %}{% endblock %}
+{% block description %}{% if q %}Résultats de recherche pour « {{ q | truncate(80) }} » dans questions, amendements, scrutins, textes et députés de la {{ current_legislature() }}ᵉ législature.{% else %}Recherche transverse dans tout 577députés : questions, amendements, scrutins, textes et députés. Syntaxe avancée FTS5 (AND / OR / NOT, recherche par champ).{% endif %}{% endblock %}
 {% block content %}
 
 <h1>Recherche transverse</h1>
