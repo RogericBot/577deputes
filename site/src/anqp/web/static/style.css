@@ -50,6 +50,7 @@ a:hover { color: var(--accent); text-decoration: underline; }
 }
 .app-header .container {
   display: flex; align-items: center; gap: 28px; min-height: 60px;
+  padding-top: 14px; padding-bottom: 14px;
   flex-wrap: wrap;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
