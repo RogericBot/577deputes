@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}577députés{% endblock %} — Activité parlementaire · {{ current_legislature() }}ᵉ législature</title>
+  <title>{% if current_legislature() != 17 %}[{{ current_legislature() }}ᵉ lég.] {% endif %}{% block title %}577députés{% endblock %} — Activité parlementaire · {{ current_legislature() }}ᵉ législature</title>
   {% set _default_desc = "Explorateur indépendant de l'activité parlementaire : textes, amendements, scrutins et questions de la " ~ current_legislature() ~ "ᵉ législature de l'Assemblée nationale, croisés avec les fiches des 577 députés. Données open data officielles." %}
   {# Description : ordre de priorité = (1) variable `meta_description` passée par
      le handler Python ; (2) {% block description %} défini par le template ;
@@ -72,7 +72,7 @@
 
   {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body{% if current_legislature() != 17 %} class="leg-past"{% endif %}>
   <header class="app-header">
     <div class="container">
       <a class="brand" href="/" aria-label="577députés — Accueil">
