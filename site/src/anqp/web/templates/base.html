@@ -34,6 +34,7 @@
   <script defer src="/static/share.js"></script>
   <script defer src="/static/chart-modal.js"></script>
   <script defer src="/static/share-page.js"></script>
+  <script defer src="/static/legislature-switcher.js"></script>
 
   {% block extra_head %}{% endblock %}
 </head>
@@ -61,8 +62,7 @@
         </a>
         {% set legs = available_legislatures() %}
         {% if legs and legs | length > 1 %}
-        <select class="leg-switcher" id="leg-switcher" aria-label="Législature"
-                onchange="window.location.href='/legislature/' + this.value + '?next=' + encodeURIComponent(window.location.pathname + window.location.search)">
+        <select class="leg-switcher" id="leg-switcher" aria-label="Législature">
           {% for l in legs %}
             <option value="{{ l }}" {% if l == current_legislature() %}selected{% endif %}>{{ l }}ᵉ législature</option>
           {% endfor %}

@@ -161,12 +161,16 @@ def set_legislature_cookie(leg: int, request: Request):
         raw = "/"
     resp = RedirectResponse(raw, status_code=303)
     if leg in _get_available_legs():
+        # `secure=True` seulement en HTTPS — sinon en dev local sur
+        # http://127.0.0.1 le navigateur jette le cookie silencieusement
+        # et le sélecteur a l'air de ne rien faire.
+        is_https = request.url.scheme == "https"
         resp.set_cookie(
             "legislature", str(leg),
             max_age=365 * 24 * 3600,
             samesite="lax",
             httponly=True,
-            secure=True,
+            secure=is_https,
         )
     else:
         # Unknown legislature → clear any stale cookie, stay on the default.
